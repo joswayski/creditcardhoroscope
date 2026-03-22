@@ -109,9 +109,7 @@ export default function TOS() {
                   Understand our audience and improve our service by analyzing anonymous, aggregated
                   data (e.g., "what percentage of our users are from the US").
                 </li>
-                {/* <li>
-                  Prevent fraud and abuse by cross-referencing location data.
-                </li> */}
+
               </ul>
             </div>
             <div>
