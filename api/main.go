@@ -1,9 +1,13 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 )
 
@@ -20,10 +24,31 @@ func main() {
 		IdleTimeout:  30 * time.Second,
 	}
 
-	err := server.ListenAndServe()
+	go startServer(&server)
+
+	quitChannel := make(chan os.Signal, 1)
+	signal.Notify(quitChannel, syscall.SIGINT, syscall.SIGTERM)
+	<-quitChannel
+
+	slog.Info("Shutting down server")
+
+	shutdownContext, shutdown := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutdown()
+
+	err := server.Shutdown(shutdownContext)
 	if err != nil {
+		slog.Error("Error shutting down server", "error", err)
+	}
+
+	slog.Info("Server stopped")
+
+}
+
+func startServer(server *http.Server) {
+	err := server.ListenAndServe()
+	if err != nil && err != http.ErrServerClosed {
 		slog.Error("Error starting API", "error", err)
-		return
+		os.Exit(1)
 	}
 }
 
