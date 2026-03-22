@@ -13,7 +13,7 @@ func main() {
 	mux.HandleFunc("/", hello)
 
 	server := http.Server{
-		Addr:         ":8080", // ! todo env
+		Addr:         ":8080", // todo env
 		Handler:      mux,
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
