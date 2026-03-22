@@ -1,0 +1,2 @@
+# creditcardhoroscope
+https://creditcardhoroscope.com/
