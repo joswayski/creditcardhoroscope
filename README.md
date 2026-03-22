@@ -9,7 +9,14 @@ What does your credit card say about you?
 ### Structure
 [web](/web) - React Router frontend
 
+```bash
+npm run dev
+```
+
 [api](/api/) - Go API
+```bash
+go run .
+```
 
 Postgres
 
