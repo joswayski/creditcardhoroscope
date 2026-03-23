@@ -20,7 +20,8 @@ func New(cfg config.Config) *Server {
 	s := &Server{Config: cfg}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", s.handleHello)
+	mux.HandleFunc("/", s.handleSaulGoodman)
+	mux.HandleFunc("/health", s.handleSaulGoodman)
 
 	s.httpServer = &http.Server{
 		Addr:         ":" + cfg.Port,
