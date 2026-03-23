@@ -109,8 +109,8 @@ export default function TOS() {
                   Understand our audience and improve our service by analyzing anonymous, aggregated
                   data (e.g., "what percentage of our users are from the US").
                 </li>
-              </ul >
-            </div >
+              </ul>
+            </div>
             <div>
               <h4 className="font-bold text-xl">3. Third-Party Services</h4>
               <p>
@@ -163,9 +163,9 @@ export default function TOS() {
                 contact@josevalerio.com.
               </p>
             </div>
-          </div >
-        </div >
-      </div >
-    </div >
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
