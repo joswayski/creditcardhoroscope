@@ -9,15 +9,18 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/joswayski/creditcardhoroscope/api/internal/config"
 )
 
 func main() {
-	mux := http.NewServeMux()
+	apiConfig := config.LoadConfig()
 
+	mux := http.NewServeMux()
 	mux.HandleFunc("/", hello)
 
 	server := http.Server{
-		Addr:         ":8080", // todo env
+		Addr:         ":" + apiConfig.Port,
 		Handler:      mux,
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
@@ -32,8 +35,8 @@ func main() {
 
 	slog.Info("Shutting down server")
 
-	shutdownContext, shutdown := context.WithTimeout(context.Background(), 10*time.Second)
-	defer shutdown()
+	shutdownContext, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 
 	err := server.Shutdown(shutdownContext)
 	if err != nil {
