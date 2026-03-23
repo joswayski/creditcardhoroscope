@@ -11,23 +11,15 @@ import (
 	"time"
 
 	"github.com/joswayski/creditcardhoroscope/api/internal/config"
+	"github.com/joswayski/creditcardhoroscope/api/internal/server"
 )
 
 func main() {
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, nil)))
 	apiConfig := config.LoadConfig()
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", hello)
-
-	server := http.Server{
-		Addr:         ":" + apiConfig.Port,
-		Handler:      mux,
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 30 * time.Second,
-		IdleTimeout:  30 * time.Second,
-	}
-
-	go startServer(&server)
+	s := server.New(apiConfig)
+	go s.Run()
 
 	quitChannel := make(chan os.Signal, 1)
 	signal.Notify(quitChannel, syscall.SIGINT, syscall.SIGTERM)
@@ -38,21 +30,13 @@ func main() {
 	shutdownContext, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	err := server.Shutdown(shutdownContext)
+	err := s.Shutdown(shutdownContext)
 	if err != nil {
 		slog.Error("Error shutting down server", "error", err)
 	}
 
 	slog.Info("Server stopped")
 
-}
-
-func startServer(server *http.Server) {
-	err := server.ListenAndServe()
-	if err != nil && err != http.ErrServerClosed {
-		slog.Error("Error starting API", "error", err)
-		os.Exit(1)
-	}
 }
 
 func hello(w http.ResponseWriter, req *http.Request) {
