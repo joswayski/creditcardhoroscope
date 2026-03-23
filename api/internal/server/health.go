@@ -5,7 +5,7 @@ import (
 	"net/http"
 )
 
-func (s *Server) handleSaulGoodman(w http.ResponseWriter, r *http.Request) {
+func (s *Server) SaulGoodman(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Header().Add("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
