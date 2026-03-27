@@ -12,8 +12,10 @@ type Config struct {
 	Port string // Defaults to 8080
 
 	// Required
-	AIBaseURL string
-	AIAPIKey  string
+	AIBaseURL       string
+	AIAPIKey        string
+	DatabaseURL     string
+	StripeSecretKey string
 }
 
 func LoadConfig() Config {
@@ -40,6 +42,17 @@ func LoadConfig() Config {
 		requiredEnvErrors = append(requiredEnvErrors, "AI_API_KEY")
 	}
 
+	dbUrl := os.Getenv("DATABASE_URL")
+	if dbUrl == "" {
+		requiredEnvErrors = append(requiredEnvErrors, "DATABASE_URL")
+	}
+
+	stripeSecretKey := os.Getenv("STRIPE_SECRET_KEY")
+	if stripeSecretKey == "" {
+		requiredEnvErrors = append(requiredEnvErrors, "STRIPE_SECRET_KEY")
+	}
+
+	// ! Must be last
 	if len(requiredEnvErrors) > 0 {
 		slog.Error("Missing required environment variables, cannot start!")
 		for i, v := range requiredEnvErrors {
@@ -50,8 +63,11 @@ func LoadConfig() Config {
 	}
 
 	return Config{
-		Port:      portString,
-		AIBaseURL: aiBaseURL,
-		AIAPIKey:  aiAPIKey,
+		Port: portString,
+		// Required
+		AIBaseURL:       aiBaseURL,
+		AIAPIKey:        aiAPIKey,
+		DatabaseURL:     dbUrl,
+		StripeSecretKey: stripeSecretKey,
 	}
 }

@@ -10,11 +10,13 @@ What does your credit card say about you?
 [web](/web) - React Router frontend
 
 ```bash
+cp .env.example .env
 npm run dev
 ```
 
 [api](/api/) - Go API
 ```bash
+cp .env.example .env
 go run .
 ```
 
