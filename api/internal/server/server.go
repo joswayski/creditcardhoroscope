@@ -32,7 +32,7 @@ func New(cfg config.Config) *Server {
 
 	s.httpServer = &http.Server{
 		Addr:         ":" + cfg.Port,
-		Handler:      middleware.CORSmiddleware(mux),
+		Handler:      middleware.CORS(mux),
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  30 * time.Second,

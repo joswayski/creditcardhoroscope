@@ -7,7 +7,7 @@ import (
 
 var allowedOrigins = []string{"http://localhost:5173", "https://creditcardhoroscope.com", "https://staging.creditcardhoroscope.com"}
 
-func CORSmiddleware(next http.Handler) http.Handler {
+func CORS(next http.Handler) http.Handler {
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		originDomain := r.Header.Get("Origin")
