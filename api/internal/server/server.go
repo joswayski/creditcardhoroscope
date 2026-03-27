@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/joswayski/creditcardhoroscope/api/internal/config"
+	"github.com/joswayski/creditcardhoroscope/api/internal/middleware"
 )
 
 type Server struct {
@@ -31,7 +32,7 @@ func New(cfg config.Config) *Server {
 
 	s.httpServer = &http.Server{
 		Addr:         ":" + cfg.Port,
-		Handler:      mux,
+		Handler:      middleware.CORSmiddleware(mux),
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  30 * time.Second,
