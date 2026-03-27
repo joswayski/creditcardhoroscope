@@ -109,7 +109,6 @@ export default function TOS() {
                   Understand our audience and improve our service by analyzing anonymous, aggregated
                   data (e.g., "what percentage of our users are from the US").
                 </li>
-
               </ul>
             </div>
             <div>

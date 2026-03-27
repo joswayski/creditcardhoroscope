@@ -1,35 +1,38 @@
 package main
 
 import (
-	"encoding/json"
+	"context"
 	"log/slog"
-	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
+
+	"github.com/joswayski/creditcardhoroscope/api/internal/config"
+	"github.com/joswayski/creditcardhoroscope/api/internal/server"
 )
 
 func main() {
-	mux := http.NewServeMux()
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, nil)))
+	apiConfig := config.LoadConfig()
 
-	mux.HandleFunc("/", hello)
+	s := server.New(apiConfig)
+	go s.Run()
 
-	server := http.Server{
-		Addr:         ":8080", // todo env
-		Handler:      mux,
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 30 * time.Second,
-		IdleTimeout:  30 * time.Second,
-	}
+	quitChannel := make(chan os.Signal, 1)
+	signal.Notify(quitChannel, syscall.SIGINT, syscall.SIGTERM)
+	<-quitChannel
 
-	err := server.ListenAndServe()
+	slog.Info("Shutting down server")
+
+	shutdownContext, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	err := s.Shutdown(shutdownContext)
 	if err != nil {
-		slog.Error("Error starting API", "error", err)
-		return
+		slog.Error("Error shutting down server", "error", err)
 	}
-}
 
-func hello(w http.ResponseWriter, req *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"message": "hello world!",
-	})
+	slog.Info("Server stopped")
+
 }
