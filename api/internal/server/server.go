@@ -20,9 +20,14 @@ func New(cfg config.Config) *Server {
 	s := &Server{Config: cfg}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /{$}", s.SaulGoodman)
-	mux.HandleFunc("GET /health", s.SaulGoodman)
-	mux.HandleFunc("/", http.NotFound)
+	mux.HandleFunc("GET /{$}", s.Root)
+	mux.HandleFunc("GET /api/v1/{$}", s.Root)
+	mux.HandleFunc("GET /api/v1/health", s.SaulGoodman)
+	mux.HandleFunc("POST /api/v1/payment-intents", s.CreatePaymentIntent)
+	mux.HandleFunc("POST /api/v1/horoscopes", s.CreateHoroscope)
+
+	// Catchall
+	mux.HandleFunc("/", s.FourOhFour)
 
 	s.httpServer = &http.Server{
 		Addr:         ":" + cfg.Port,
@@ -36,7 +41,7 @@ func New(cfg config.Config) *Server {
 }
 
 func (s *Server) Run() {
-	slog.Info(fmt.Sprintf("Server running on port %s", s.Config.Port))
+	slog.Info(fmt.Sprintf("Server running on http://localhost:%s", s.Config.Port))
 	err := s.httpServer.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {
 		slog.Error("Error starting API", "error", err)

@@ -5,10 +5,10 @@ import (
 	"net/http"
 )
 
-func (s *Server) SaulGoodman(w http.ResponseWriter, r *http.Request) {
+func (s *Server) FourOhFour(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(http.StatusNotFound)
 	json.NewEncoder(w).Encode(map[string]string{
-		"message": "Saul Goodman",
+		"message": "Not Found",
 	})
 }
