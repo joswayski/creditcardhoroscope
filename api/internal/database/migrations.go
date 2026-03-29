@@ -69,11 +69,13 @@ func RunMigrations(pool *pgxpool.Pool) error {
 		// Execute the migration
 		migrationSql, err := migrationFiles.ReadFile("migrations/" + m.Name())
 		if err != nil {
-			slog.Error("Error reading migration file", err)
+			slog.Error("Error reading migration file", m.Name(), err)
+			return err
 		}
 		_, err = tx.Exec(context.Background(), string(migrationSql))
 		if err != nil {
 			slog.Error("Error executing migration", m.Name(), err)
+			return err
 		}
 
 		// Update the migrations table
@@ -81,6 +83,7 @@ func RunMigrations(pool *pgxpool.Pool) error {
 		INSERT INTO migrations (name) VALUES ($1)`, m.Name())
 		if err != nil {
 			slog.Error("Error executing migration table update", m.Name(), err)
+			return err
 		}
 
 		slog.Info(fmt.Sprintf("Migration %s applied", m.Name()))
