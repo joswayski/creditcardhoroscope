@@ -4,7 +4,6 @@ import (
 	"context"
 	"embed"
 	"fmt"
-	"log"
 	"log/slog"
 	"time"
 
@@ -35,10 +34,16 @@ func RunMigrations(pool *pgxpool.Pool) error {
 	if err != nil {
 		return err
 	}
-	dbMigrations, err := pgx.CollectRows(rows, pgx.RowTo[Migration])
+	dbMigrations, err := pgx.CollectRows(rows, pgx.RowToStructByName[Migration])
 	if err != nil {
 		return err
 	}
+
+	tx, err := pool.Begin(context.Background())
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(context.Background())
 
 	// Get the current migrations in /migrations
 	localMigrations, err := migrationFiles.ReadDir("migrations")
@@ -52,27 +57,38 @@ func RunMigrations(pool *pgxpool.Pool) error {
 		for _, dbM := range dbMigrations {
 			if m.Name() == dbM.Name {
 				alreadyRan = true
+				slog.Info(fmt.Sprintf("Skipping migration %s as it was already ran", m.Name()))
 				break
 			}
+		}
 
-			if alreadyRan {
-				continue
-			}
+		if alreadyRan {
+			continue
 		}
 
 		// Execute the migration
 		migrationSql, err := migrationFiles.ReadFile("migrations/" + m.Name())
 		if err != nil {
-			log.Fatal("Error reading migration file", err)
+			slog.Error("Error reading migration file", err)
+		}
+		_, err = tx.Exec(context.Background(), string(migrationSql))
+		if err != nil {
+			slog.Error("Error executing migration", m.Name(), err)
 		}
 
-		_, err = pool.Exec(context.Background(), string(migrationSql))
+		// Update the migrations table
+		_, err = tx.Exec(context.Background(), `
+		INSERT INTO migrations (name) VALUES ($1)`, m.Name())
 		if err != nil {
-			log.Fatal("Error executing migration", err)
+			slog.Error("Error executing migration table update", m.Name(), err)
 		}
 
 		slog.Info(fmt.Sprintf("Migration %s applied", m.Name()))
 	}
+	err = tx.Commit(context.Background())
+	if err != nil {
+		return err
+	}
 
-	return err
+	return nil
 }
