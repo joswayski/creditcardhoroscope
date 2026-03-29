@@ -21,6 +21,9 @@ docker compose up -d
 | postgres | localhost:5432          | Postgres |
 
 
+### Database
+There's a `payment_intents` table and a `generations` table. That's pretty much it :)
+
 ### Misc
 
 Stripe for payments and OpenRouter for the LLM
