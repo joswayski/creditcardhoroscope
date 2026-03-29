@@ -11,16 +11,18 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joswayski/creditcardhoroscope/api/internal/config"
 	"github.com/joswayski/creditcardhoroscope/api/internal/middleware"
+	"github.com/stripe/stripe-go/v85"
 )
 
 type Server struct {
 	Config     config.Config
 	httpServer *http.Server
 	DB         *pgxpool.Pool
+	Stripe     *stripe.Client
 }
 
 func New(cfg config.Config, pool *pgxpool.Pool) *Server {
-	s := &Server{Config: cfg, DB: pool}
+	s := &Server{Config: cfg, DB: pool, Stripe: stripe.NewClient(cfg.StripeSecretKey)}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", s.Root)
