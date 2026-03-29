@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"log"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -17,10 +18,19 @@ func main() {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, nil)))
 	apiConfig := config.LoadConfig()
 
-	dbConn := database.Connect(apiConfig.DatabaseURL)
-	defer dbConn.Close()
+	pool := database.Connect(apiConfig.DatabaseURL)
+	defer pool.Close()
 
-	s := server.New(apiConfig, dbConn)
+	migrations, err := database.GetMigrations(pool)
+	if err != nil {
+		log.Fatal("Error getting migrations", err)
+	}
+
+	for _, m := range migrations {
+		slog.Info("Found migrations %s", m.Name)
+	}
+
+	s := server.New(apiConfig, pool)
 	go s.Run()
 
 	quitChannel := make(chan os.Signal, 1)
@@ -32,7 +42,7 @@ func main() {
 	shutdownContext, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	err := s.Shutdown(shutdownContext)
+	err = s.Shutdown(shutdownContext)
 	if err != nil {
 		slog.Error("Error shutting down server", "error", err)
 	}

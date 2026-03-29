@@ -19,8 +19,8 @@ type Server struct {
 	DB         *pgxpool.Pool
 }
 
-func New(cfg config.Config, db *pgxpool.Pool) *Server {
-	s := &Server{Config: cfg, DB: db}
+func New(cfg config.Config, pool *pgxpool.Pool) *Server {
+	s := &Server{Config: cfg, DB: pool}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", s.Root)
