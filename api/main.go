@@ -22,7 +22,8 @@ func main() {
 
 	err := database.RunMigrations(pool)
 	if err != nil {
-		slog.Error("Error running migrations", err)
+		slog.Error("Error running migrations", "error", err)
+		os.Exit(1)
 	}
 
 	s := server.New(apiConfig, pool)
