@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joswayski/creditcardhoroscope/api/internal/config"
 	"github.com/joswayski/creditcardhoroscope/api/internal/middleware"
 )
@@ -15,10 +16,11 @@ import (
 type Server struct {
 	Config     config.Config
 	httpServer *http.Server
+	DB         *pgxpool.Pool
 }
 
-func New(cfg config.Config) *Server {
-	s := &Server{Config: cfg}
+func New(cfg config.Config, db *pgxpool.Pool) *Server {
+	s := &Server{Config: cfg, DB: db}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", s.Root)

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/joswayski/creditcardhoroscope/api/internal/config"
+	"github.com/joswayski/creditcardhoroscope/api/internal/database"
 	"github.com/joswayski/creditcardhoroscope/api/internal/server"
 )
 
@@ -16,7 +17,10 @@ func main() {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, nil)))
 	apiConfig := config.LoadConfig()
 
-	s := server.New(apiConfig)
+	dbConn := database.Connect(apiConfig.DatabaseURL)
+	defer dbConn.Close()
+
+	s := server.New(apiConfig, dbConn)
 	go s.Run()
 
 	quitChannel := make(chan os.Signal, 1)
