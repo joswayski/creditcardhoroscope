@@ -26,10 +26,13 @@ func run() error {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, nil)))
 	apiConfig := config.LoadConfig()
 
-	pool := database.Connect(apiConfig.DatabaseURL)
+	pool, err := database.Connect(apiConfig.DatabaseURL)
+	if err != nil {
+		return fmt.Errorf("Error connecting to the database %w", err)
+	}
 	defer pool.Close()
 
-	err := database.RunMigrations(pool)
+	err = database.RunMigrations(pool)
 	if err != nil {
 		return fmt.Errorf("Error running migrations %w", err)
 	}
