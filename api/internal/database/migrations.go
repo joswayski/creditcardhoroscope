@@ -52,6 +52,7 @@ func RunMigrations(pool *pgxpool.Pool) error {
 	}
 
 	// Loop through the local ones, and if not in the DB, execute it
+	// yeah yeah i know looping
 	for _, m := range localMigrations {
 		alreadyRan := false
 		for _, dbM := range dbMigrations {
