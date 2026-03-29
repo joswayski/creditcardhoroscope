@@ -6,20 +6,24 @@ What does your credit card say about you?
 
 ---
 
-### Structure
-[web](/web) - React Router frontend
-
+### Running
 ```bash
-cp .env.example .env
-npm run dev
+cp api/.env.example api/.env
+cp web/.env.example web/.env
+
+docker compose up -d
 ```
 
-[api](/api/) - Go API
-```bash
-cp .env.example .env
-go run .
-```
+| Service  | URL                    | Description |
+|----------|------------------------| ---------- |
+| web      | http://localhost:3000   | React Router |
+| api      | http://localhost:8080   | Go API |
+| postgres | localhost:5432          | Postgres |
 
-Postgres
 
-Stripe & OpenRouter for the LLM
+### Database
+There's a `payment_intents` table and a `generations` table. That's pretty much it :)
+
+### Misc
+
+Stripe for payments and OpenRouter for the LLM

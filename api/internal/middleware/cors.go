@@ -5,7 +5,7 @@ import (
 	"slices"
 )
 
-var allowedOrigins = []string{"http://localhost:5173", "https://creditcardhoroscope.com", "https://staging.creditcardhoroscope.com"}
+var allowedOrigins = []string{"http://localhost:5173", "http://localhost:3000", "https://creditcardhoroscope.com", "https://staging.creditcardhoroscope.com"}
 
 func CORS(next http.Handler) http.Handler {
 
