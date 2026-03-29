@@ -5,6 +5,7 @@ go 1.26.1
 require (
 	github.com/jackc/pgx/v5 v5.9.1
 	github.com/joho/godotenv v1.5.1
+	github.com/stripe/stripe-go/v85 v85.0.0
 )
 
 require (
