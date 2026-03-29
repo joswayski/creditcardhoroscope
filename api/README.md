@@ -3,6 +3,8 @@
 For the required environment variables, please see [.env.example](.env.example)
 
 
+### Migrations
+They are ran at API start. See [migrations.go](/api/internal/database/migrations.go) and [/migrations](/api/internal/database/migrations)
 
 ### Routes
 
