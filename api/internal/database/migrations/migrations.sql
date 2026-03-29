@@ -1,4 +1,1 @@
-CREATE TABLE IF NOT EXISTS migrations (
-    name TEXT,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-)
+CREATE TABLE IF NOT EXISTS poop1
