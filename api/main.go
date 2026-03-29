@@ -20,7 +20,10 @@ func main() {
 	pool := database.Connect(apiConfig.DatabaseURL)
 	defer pool.Close()
 
-	go database.RunMigrations(pool)
+	err := database.RunMigrations(pool)
+	if err != nil {
+		slog.Error("Error running migrations", err)
+	}
 
 	s := server.New(apiConfig, pool)
 	go s.Run()
@@ -34,7 +37,7 @@ func main() {
 	shutdownContext, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	err := s.Shutdown(shutdownContext)
+	err = s.Shutdown(shutdownContext)
 	if err != nil {
 		slog.Error("Error shutting down server", "error", err)
 	}
