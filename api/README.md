@@ -16,5 +16,4 @@ They are ran at API start. See [migrations.go](/api/internal/database/migrations
 
 `POST /api/v1/horoscopes` Creates a horoscope
 
-
 Catch all --> 404
