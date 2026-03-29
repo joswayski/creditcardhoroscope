@@ -16,6 +16,7 @@ type Migration struct {
 func GetMigrations(pool *pgxpool.Pool) ([]Migration, error) {
 	rows, err := pool.Query(context.Background(), "SELECT * FROM migrations ORDER BY created_at DESC")
 	if err != nil {
+		// TODO if no migrations table, create it!
 		return nil, err
 	}
 
