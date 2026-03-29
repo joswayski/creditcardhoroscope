@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -14,6 +15,14 @@ import (
 )
 
 func main() {
+	err := run()
+	if err != nil {
+		slog.Error("Fatal error", "error", err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, nil)))
 	apiConfig := config.LoadConfig()
 
@@ -22,8 +31,7 @@ func main() {
 
 	err := database.RunMigrations(pool)
 	if err != nil {
-		slog.Error("Error running migrations", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("Error running migrations %w", err)
 	}
 
 	s := server.New(apiConfig, pool)
@@ -40,9 +48,9 @@ func main() {
 
 	err = s.Shutdown(shutdownContext)
 	if err != nil {
-		slog.Error("Error shutting down server", "error", err)
+		return fmt.Errorf("Error shutting down server %w", err)
 	}
 
 	slog.Info("Server stopped")
-
+	return nil
 }
