@@ -19,16 +19,24 @@ type Server struct {
 	httpServer *http.Server
 	DB         *pgxpool.Pool
 	Stripe     *stripe.Client
+	cancel     context.CancelFunc
 }
 
 func New(cfg config.Config, pool *pgxpool.Pool) *Server {
 	s := &Server{Config: cfg, DB: pool, Stripe: stripe.NewClient(cfg.StripeSecretKey)}
 
+	ctx, cancel := context.WithCancel(context.Background())
+	s.cancel = cancel
+
+	piRateLimiter := middleware.CreateRateLimiter(time.Second*5, 2)
+	go piRateLimiter.BackgroundCleanup(ctx)
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", s.Root)
 	mux.HandleFunc("GET /api/v1/{$}", s.Root)
 	mux.HandleFunc("GET /api/v1/health", s.SaulGoodman)
-	mux.HandleFunc("POST /api/v1/payment-intents", s.CreatePaymentIntent)
+
+	mux.HandleFunc("POST /api/v1/payment-intents", middleware.RateLimit(piRateLimiter, s.CreatePaymentIntent))
 	mux.HandleFunc("POST /api/v1/horoscopes", s.CreateHoroscope)
 
 	// Catchall
@@ -56,5 +64,6 @@ func (s *Server) Run() {
 }
 
 func (s *Server) Shutdown(ctx context.Context) error {
+	s.cancel()
 	return s.httpServer.Shutdown(ctx)
 }
