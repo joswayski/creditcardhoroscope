@@ -9,7 +9,6 @@ import (
 	"github.com/stripe/stripe-go/v85"
 )
 
-// TODO add rate limiter
 func (s *Server) CreatePaymentIntent(w http.ResponseWriter, r *http.Request) {
 	// Create the PI in stripe
 	paymentIntentParams := &stripe.PaymentIntentCreateParams{
