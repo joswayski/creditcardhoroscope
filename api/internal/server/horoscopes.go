@@ -77,8 +77,7 @@ func (s *Server) CreateHoroscope(w http.ResponseWriter, r *http.Request) {
 	if dbPaymentIntent.Status != "pending" && dbPaymentIntent.Status != "paid" {
 		w.WriteHeader(http.StatusConflict)
 		json.NewEncoder(w).Encode(map[string]string{
-			// TODO env email
-			"message": fmt.Sprintf("Unfortunately, this payment cannot be redeemed for a horoscope. If you have any questions email contact@josevalerio.com with this ID: %s", dbPaymentIntent.ID),
+			"message": fmt.Sprintf("Unfortunately, this payment cannot be redeemed for a horoscope. If you have any questions email %s with this ID: %s", s.Config.SupportEmail, dbPaymentIntent.PaymentIntentID),
 		})
 		return
 	}
