@@ -16,6 +16,7 @@ type Config struct {
 	AIAPIKey        string
 	DatabaseURL     string
 	StripeSecretKey string
+	SupportEmail    string
 }
 
 func LoadConfig() Config {
@@ -52,6 +53,12 @@ func LoadConfig() Config {
 		requiredEnvErrors = append(requiredEnvErrors, "STRIPE_SECRET_KEY")
 	}
 
+	supportEmail := os.Getenv("SUPPORT_EMAIL")
+	if supportEmail == "" {
+		requiredEnvErrors = append(requiredEnvErrors, "SUPPORT_EMAIL")
+
+	}
+
 	// ! Must be last
 	if len(requiredEnvErrors) > 0 {
 		slog.Error("Missing required environment variables, cannot start!")
@@ -69,5 +76,6 @@ func LoadConfig() Config {
 		AIAPIKey:        aiAPIKey,
 		DatabaseURL:     dbUrl,
 		StripeSecretKey: stripeSecretKey,
+		SupportEmail:    supportEmail,
 	}
 }

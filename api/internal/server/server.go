@@ -28,16 +28,19 @@ func New(cfg config.Config, pool *pgxpool.Pool) *Server {
 	ctx, cancel := context.WithCancel(context.Background())
 	s.cancel = cancel
 
-	piRateLimiter := middleware.CreateRateLimiter(time.Second*5, 2)
-	go piRateLimiter.BackgroundCleanup(ctx)
-
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", s.Root)
 	mux.HandleFunc("GET /api/v1/{$}", s.Root)
 	mux.HandleFunc("GET /api/v1/health", s.SaulGoodman)
 
+	piRateLimiter := middleware.CreateRateLimiter(time.Second*5, 2)
+	go piRateLimiter.BackgroundCleanup(ctx)
 	mux.HandleFunc("POST /api/v1/payment-intents", middleware.RateLimit(piRateLimiter, s.CreatePaymentIntent))
-	mux.HandleFunc("POST /api/v1/horoscopes", s.CreateHoroscope)
+
+	// TODO In the future we will allow multiple generations. For now to stop some spam
+	horoscopeRateLimiter := middleware.CreateRateLimiter(time.Second*5, 2)
+	go horoscopeRateLimiter.BackgroundCleanup(ctx)
+	mux.HandleFunc("POST /api/v1/horoscopes", middleware.RateLimit(horoscopeRateLimiter, s.CreateHoroscope))
 
 	// Catchall
 	mux.HandleFunc("/", s.FourOhFour)
