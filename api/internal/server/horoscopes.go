@@ -2,11 +2,14 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/stripe/stripe-go/v85"
 )
 
 type CreateHoroscopeRequest struct {
@@ -28,29 +31,32 @@ func (s *Server) CreateHoroscope(w http.ResponseWriter, r *http.Request) {
 	// Check our DB to make sure it's still pending
 	// TODO in the future we will allow multiple uses
 	tx, err := s.DB.Begin(r.Context())
-	defer tx.Rollback(r.Context())
 	if err != nil {
+		slog.Error("Error starting transaction", "error", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"message": "Sorry, an error ocurred :( Please try again!",
 		})
 		return
 	}
+	defer tx.Rollback(r.Context())
 
 	rows, err := tx.Query(r.Context(), `
 	SELECT * from payment_intents where payment_intent_id = $1 FOR UPDATE
 	`, req.PaymentIntentId)
 	if err != nil {
+		slog.Error("Error querying", "error", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"message": "Sorry, an error ocurred :( Please try again!",
 		})
 		return
 	}
-	paymentIntent, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[PaymentIntent])
+	dbPaymentIntent, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[PaymentIntent])
 	if err != nil {
+		slog.Error("Error getting payment intent", "error", err)
 		// TODO add better logging
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			w.WriteHeader(http.StatusNotFound)
 			json.NewEncoder(w).Encode(map[string]string{
 				"message": "Unfortunately, we could not find your payment",
@@ -58,16 +64,6 @@ func (s *Server) CreateHoroscope(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if paymentIntent.Status != "pending" {
-			w.WriteHeader(http.StatusConflict)
-			json.NewEncoder(w).Encode(map[string]string{
-				// TODO in the future we want to allow completed to be re-used / new used status
-				// TODO env email
-				"message": "Unfortunately, you've already redeemed your horoscope! Please email contact@josevalerio.com if you have any issues.",
-			})
-			return
-		}
-
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
 			"message": "Sorry, an error ocurred :( Please try again!",
@@ -75,12 +71,107 @@ func (s *Server) CreateHoroscope(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check stripe to make sure it's good
+	// Check the DB status before proceeding
+	// Pending gets let through because we're awaiting a generation
+	// Paid gets let through because we'll allow multiple generations (TODO)
+	if dbPaymentIntent.Status != "pending" && dbPaymentIntent.Status != "paid" {
+		w.WriteHeader(http.StatusConflict)
+		json.NewEncoder(w).Encode(map[string]string{
+			// TODO env email
+			"message": fmt.Sprintf("Unfortunately, this payment cannot be redeemed for a horoscope. If you have any questions email contact@josevalerio.com with this ID: %s", dbPaymentIntent.ID),
+		})
+		return
+	}
+
+	stripePaymentIntent, err := s.Stripe.V1PaymentIntents.Retrieve(r.Context(), dbPaymentIntent.PaymentIntentID, &stripe.PaymentIntentRetrieveParams{
+		Expand: stripe.StringSlice([]string{"payment_method"}),
+	})
+
+	if err != nil || stripePaymentIntent == nil || stripePaymentIntent.PaymentMethod == nil || stripePaymentIntent.PaymentMethod.Card == nil {
+		slog.Error("Error retrieving payment intent / method / card", "error", err, "pi", stripePaymentIntent)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"message": "Sorry, an error ocurred :( Please try again!",
+		})
+		return
+	}
+
+	if stripePaymentIntent.Status != stripe.PaymentIntentStatusSucceeded {
+		// TODO handle others
+		w.WriteHeader(http.StatusConflict)
+		json.NewEncoder(w).Encode(map[string]string{
+			"message": "Payment has not been received yet! Please try again later",
+		})
+		return
+	}
+
+	cardDetails := getCardDetails(stripePaymentIntent.PaymentMethod)
+
+	// If it is paid, we should update the DB to paid so that the user can retry if the AI fails
+	_, err = tx.Exec(r.Context(), `
+	UPDATE payment_intents
+	SET status = $1, card_brand = $2, card_exp_month = $3, card_exp_year = $4,
+	card_last_4 = $5, card_country = $6, card_postal = $7
+	WHERE id = $8`,
+		"paid",
+		cardDetails.brand,
+		cardDetails.expMonth,
+		cardDetails.expYear,
+		cardDetails.last4,
+		cardDetails.country,
+		cardDetails.postalCode,
+		dbPaymentIntent.ID)
+
+	if err != nil {
+		slog.Error("Error saving horoscope paid status to DB", "error", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"message": "An error ocurred creating your horoscope, please try again",
+		})
+		return
+	}
+
+	err = tx.Commit(r.Context())
+	if err != nil {
+		slog.Error("Error saving horoscope paid status to DB", "error", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"message": "An error ocurred creating your horoscope, please try again",
+		})
+		return
+	}
 
 	// TODO debug
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]PaymentIntent{
-		"pi": paymentIntent,
+	json.NewEncoder(w).Encode(map[string]any{
+		"db_pi":     dbPaymentIntent,
+		"stripe_pi": stripePaymentIntent,
 	})
 
+}
+
+type cardInfo struct {
+	brand      string
+	expMonth   string
+	expYear    string
+	last4      string
+	country    string
+	postalCode *string
+}
+
+func getCardDetails(pm *stripe.PaymentMethod) cardInfo {
+	var postalCode *string
+	if pm.BillingDetails != nil && pm.BillingDetails.Address != nil && pm.BillingDetails.Address.PostalCode != "" {
+		pc := pm.BillingDetails.Address.PostalCode
+		postalCode = &pc
+	}
+
+	return cardInfo{
+		brand:      string(pm.Card.Brand),
+		expMonth:   fmt.Sprintf("%d", pm.Card.ExpMonth),
+		expYear:    fmt.Sprintf("%d", pm.Card.ExpYear),
+		last4:      pm.Card.Last4,
+		country:    pm.Card.Country,
+		postalCode: postalCode,
+	}
 }
