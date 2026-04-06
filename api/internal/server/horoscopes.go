@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/joswayski/creditcardhoroscope/api/internal/horoscopes"
+	"github.com/joswayski/creditcardhoroscope/api/internal/types"
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/responses"
 	"github.com/stripe/stripe-go/v85"
@@ -58,7 +60,7 @@ func (s *Server) CreateHoroscope(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	dbPaymentIntent, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[PaymentIntent])
+	dbPaymentIntent, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[types.PaymentIntent])
 	if err != nil {
 		slog.Error("Error getting payment intent", "error", err)
 		// TODO add better logging
@@ -157,7 +159,7 @@ func (s *Server) CreateHoroscope(w http.ResponseWriter, r *http.Request) {
 			Model:        s.Config.AIModel,
 			Instructions: openai.String(s.Config.AISystemPrompt),
 			Input: responses.ResponseNewParamsInputUnion{
-				OfString: openai.String("user details"),
+				OfString: openai.String(horoscopes.FormatUserMessage(&dbPaymentIntent)),
 			}})
 
 		if err == nil && aiResponse.Status != "failed" {
@@ -181,6 +183,17 @@ func (s *Server) CreateHoroscope(w http.ResponseWriter, r *http.Request) {
 	}
 
 	horoscope := aiResponse.OutputText()
+	err = tx.Commit(r.Context())
+	if err != nil {
+		slog.Error("Error starting transaction after horoscope was generated", "pi", dbPaymentIntent.PaymentIntentID, "horoscope", horoscope)
+		w.WriteHeader(http.StatusCreated)
+		// This is our issue at this point but we can still give the user a good time
+		json.NewEncoder(w).Encode(map[string]any{
+			"horoscope": horoscope,
+		})
+		return
+	}
+	// Write to DB
 
 	// TODO debug
 	w.WriteHeader(http.StatusCreated)
