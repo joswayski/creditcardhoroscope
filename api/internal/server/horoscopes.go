@@ -80,9 +80,7 @@ func (s *Server) CreateHoroscope(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check the DB status before proceeding
-	// Pending gets let through because we're awaiting a generation
-	// Paid gets let through because we'll allow multiple generations (TODO)
-	if dbPaymentIntent.Status != "pending" && dbPaymentIntent.Status != "paid" {
+	if !dbPaymentIntent.AllowsGenerations() {
 		w.WriteHeader(http.StatusConflict)
 		json.NewEncoder(w).Encode(map[string]string{
 			"message": fmt.Sprintf("Unfortunately, this payment cannot be redeemed for a horoscope. If you have any questions email %s with this ID: %s", s.Config.SupportEmail, dbPaymentIntent.PaymentIntentID),
@@ -162,7 +160,7 @@ func (s *Server) CreateHoroscope(w http.ResponseWriter, r *http.Request) {
 				OfString: openai.String(horoscopes.FormatUserMessage(&dbPaymentIntent)),
 			}})
 
-		if err == nil && aiResponse.Status != "failed" {
+		if aiErr == nil && aiResponse.Status != "failed" {
 			// Saul Goodman
 			break
 		}
@@ -183,7 +181,7 @@ func (s *Server) CreateHoroscope(w http.ResponseWriter, r *http.Request) {
 	}
 
 	horoscope := aiResponse.OutputText()
-	err = tx.Commit(r.Context())
+	tx, err = tx.Begin(r.Context())
 	if err != nil {
 		slog.Error("Error starting transaction after horoscope was generated", "pi", dbPaymentIntent.PaymentIntentID, "horoscope", horoscope)
 		w.WriteHeader(http.StatusCreated)
@@ -193,8 +191,35 @@ func (s *Server) CreateHoroscope(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	// Write to DB
+	defer tx.Rollback(r.Context())
 
+	// Lock the PI again
+	row := tx.QueryRow(r.Context(), `
+	SELECT * FROM payment_intents 
+	WHERE id = $1 FOR UPDATE
+	`, dbPaymentIntent.ID)
+
+	err = row.Scan(dbPaymentIntent)
+	if err != nil {
+		slog.Error("Error updating DB status of paid PI with horoscope", "pi", dbPaymentIntent.PaymentIntentID, "horoscope", horoscope)
+		w.WriteHeader(http.StatusCreated)
+		// This is our issue at this point but we can still give the user a good time
+		json.NewEncoder(w).Encode(map[string]any{
+			"horoscope": horoscope,
+		})
+		return
+	}
+
+	if !dbPaymentIntent.AllowsGenerations() {
+		w.WriteHeader(http.StatusConflict)
+		json.NewEncoder(w).Encode(map[string]string{
+			"message": fmt.Sprintf("Unfortunately, this payment cannot be redeemed for a horoscope. If you have any questions email %s with this ID: %s", s.Config.SupportEmail, dbPaymentIntent.PaymentIntentID),
+		})
+	}
+
+	// Update the PI row
+
+	// Update the generations row
 	// TODO debug
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]any{

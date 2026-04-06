@@ -17,3 +17,10 @@ type PaymentIntent struct {
 	CardCountry     *string   `db:"card_country"`
 	CardPostal      *string   `db:"card_postal"`
 }
+
+// Pending gets let through because we're awaiting a generation
+// Paid gets let through because we'll allow multiple generations (TODO)
+// TODO allow multiple through here by passing count
+func (pi *PaymentIntent) AllowsGenerations() bool {
+	return pi.Status == "pending" || pi.Status == "paid"
+}
