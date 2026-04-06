@@ -2,7 +2,7 @@ import { BiArrowBack } from "react-icons/bi";
 import type { Route } from "../+types/root";
 import { Link } from "react-router";
 
-export function meta({}: Route.MetaArgs) {
+export function meta({ }: Route.MetaArgs) {
   return [
     { title: "Credit Card Horoscope Terms of Service" },
     {
@@ -56,11 +56,7 @@ export default function TOS() {
               </p>
             </div>
 
-            {/* <p>
-            If you are unsatisfied with the initial Horoscope, we offer a
-            one-time 'Try Again' button to generate a new one.
-          </p> */}
-            {/* TODO */}
+
             <div>
               <h4 className="font-bold text-xl">
                 2. Entertainment Purposes Only
@@ -126,14 +122,7 @@ export default function TOS() {
                   .
                 </li>
                 <li>
-                  {/* TODO */}
-                  {/* <span className="font-bold">Refunds</span>: We want you to be
-              satisfied. If you are unhappy with your first Horoscope, please
-              use the "Try Again" button to receive a second one. If you are
-              still unsatisfied after your second attempt, please contact us at
-              [YOUR SUPPORT EMAIL HERE] for a full $1.00 refund. We would rather
-              give you a refund than have you file a dispute.
-            </li> */}
+
                   <span className="font-bold">Refunds</span>: We want you to be
                   satisfied. If you are unhappy with your Horoscope, please
                   contact us at{" "}

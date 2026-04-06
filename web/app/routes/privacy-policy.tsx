@@ -2,7 +2,7 @@ import { BiArrowBack } from "react-icons/bi";
 import type { Route } from "../+types/root";
 import { Link } from "react-router";
 
-export function meta({}: Route.MetaArgs) {
+export function meta({ }: Route.MetaArgs) {
   return [
     { title: "Credit Card Horoscope Privacy Policy" },
     {
@@ -45,16 +45,6 @@ export default function TOS() {
                 provide our Service.
               </p>
               <ul className="list-disc list-inside ml-4 space-y-2">
-                {/* <li>
-                  <span className="font-bold">
-                    Analytics and Geolocation Data
-                  </span>
-                  : When you visit our site, we make a call to a third-party
-                  service (TODOTODOTODO.co) to collect information about your
-                  device and location. This data includes: your IP Address,
-                  City, Region, Country, Postal Code, Latitude/Longitude,
-                  Timezone, Currency, and ISP information (org, asn).
-                </li> */}
                 <li>
                   <span className="font-bold">Security & Analytics Data</span>:
                   We use{" "}
@@ -111,11 +101,6 @@ export default function TOS() {
                     expiration month and year, last 4 digits, country and postal
                     code.
                   </li>
-                  {/* <li>
-                    The{" "}
-                    <span className="font-bold">Analytics and Geolocation</span>{" "}
-                    data listed above.
-                  </li> */}
                 </ul>
               </ul>
             </div>
@@ -143,9 +128,6 @@ export default function TOS() {
                   anonymous, aggregated data (e.g., "what percentage of our
                   users are from the US").
                 </li>
-                {/* <li>
-                  Prevent fraud and abuse by cross-referencing location data.
-                </li> */}
               </ul>
             </div>
             <div>
@@ -172,10 +154,6 @@ export default function TOS() {
                   expiration, last 4 digits, country, postal code) to this
                   service, and they return the generated Horoscope.
                 </li>
-                {/* <li>
-                  <span className="font-bold">iplocate.io</span>: To collect the
-                  Analytics and Geolocation data described in Section 1.
-                </li> */}
               </ul>
             </div>
             <div>
