@@ -185,6 +185,7 @@ func (s *Server) CreateHoroscope(w http.ResponseWriter, r *http.Request) {
 				"message": `Unfortunately, we could not generate a horoscope for you.`,
 			})
 			// TODO refund
+			// TODO also handle the refund event in a wh
 
 			return
 		}
