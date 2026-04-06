@@ -48,7 +48,7 @@ func New(cfg config.Config, pool *pgxpool.Pool) *Server {
 	s.httpServer = &http.Server{
 		Addr: ":" + cfg.Port,
 		// left to right
-		Handler:      middleware.CORS(middleware.JSONHeader(mux)),
+		Handler:      middleware.CORS(middleware.BodySize(middleware.JSONHeader(mux))),
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  30 * time.Second,
