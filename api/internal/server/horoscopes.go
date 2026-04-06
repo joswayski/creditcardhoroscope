@@ -116,8 +116,8 @@ func (s *Server) CreateHoroscope(w http.ResponseWriter, r *http.Request) {
 	_, err = tx.Exec(r.Context(), `
 	UPDATE payment_intents
 	SET status = $1, card_brand = $2, card_exp_month = $3, card_exp_year = $4,
-	card_last_4 = $5, card_country = $6, card_postal = $7
-	WHERE id = $8`,
+	card_last_4 = $5, card_country = $6, card_postal = $7, updated_at = $8
+	WHERE id = $9`,
 		"paid",
 		cardDetails.brand,
 		cardDetails.expMonth,
@@ -125,6 +125,7 @@ func (s *Server) CreateHoroscope(w http.ResponseWriter, r *http.Request) {
 		cardDetails.last4,
 		cardDetails.country,
 		cardDetails.postalCode,
+		time.Now().UTC(),
 		dbPaymentIntent.ID)
 
 	if err != nil {
@@ -181,9 +182,9 @@ func (s *Server) CreateHoroscope(w http.ResponseWriter, r *http.Request) {
 	}
 
 	horoscope := aiResponse.OutputText()
-	tx, err = tx.Begin(r.Context())
+	tx, err = s.DB.Begin(r.Context())
 	if err != nil {
-		slog.Error("Error starting transaction after horoscope was generated", "pi", dbPaymentIntent.PaymentIntentID, "horoscope", horoscope)
+		slog.Error("Error starting transaction after horoscope was generated", "pi", dbPaymentIntent.PaymentIntentID, "horoscope", horoscope, "aiResponse", aiResponse)
 		w.WriteHeader(http.StatusCreated)
 		// This is our issue at this point but we can still give the user a good time
 		json.NewEncoder(w).Encode(map[string]any{
@@ -194,14 +195,24 @@ func (s *Server) CreateHoroscope(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback(r.Context())
 
 	// Lock the PI again
-	row := tx.QueryRow(r.Context(), `
+	rows, err = tx.Query(r.Context(), `
 	SELECT * FROM payment_intents 
 	WHERE id = $1 FOR UPDATE
 	`, dbPaymentIntent.ID)
 
-	err = row.Scan(dbPaymentIntent)
 	if err != nil {
-		slog.Error("Error updating DB status of paid PI with horoscope", "pi", dbPaymentIntent.PaymentIntentID, "horoscope", horoscope)
+		slog.Error("Error retrieving horoscope from DB while adding generation", "pi", dbPaymentIntent.PaymentIntentID, "horoscope", horoscope, "error", err, "aiResponse", aiResponse)
+		w.WriteHeader(http.StatusCreated)
+		// This is our issue at this point but we can still give the user a good time
+		json.NewEncoder(w).Encode(map[string]any{
+			"horoscope": horoscope,
+		})
+		return
+	}
+
+	dbPaymentIntent, err = pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[types.PaymentIntent])
+	if err != nil {
+		slog.Error("Error retrieving horoscope from DB while adding generation 2", "pi", dbPaymentIntent.PaymentIntentID, "horoscope", horoscope, "error", err, "aiResponse", aiResponse)
 		w.WriteHeader(http.StatusCreated)
 		// This is our issue at this point but we can still give the user a good time
 		json.NewEncoder(w).Encode(map[string]any{
@@ -215,16 +226,40 @@ func (s *Server) CreateHoroscope(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]string{
 			"message": fmt.Sprintf("Unfortunately, this payment cannot be redeemed for a horoscope. If you have any questions email %s with this ID: %s", s.Config.SupportEmail, dbPaymentIntent.PaymentIntentID),
 		})
+		return
+	}
+	// Update generations row
+	_, err = tx.Exec(r.Context(), `
+	INSERT INTO generations 
+	(payment_intent_id, status, or_gen_id, or_model, or_tokens_used, horoscope)
+	VALUES ($1, $2, $3, $4, $5, $6)
+	`, dbPaymentIntent.ID, "completed", aiResponse.ID, string(aiResponse.Model), aiResponse.Usage.TotalTokens, aiResponse.OutputText())
+
+	if err != nil {
+		// Again, this is our problem at this point
+		slog.Error("Error adding horoscope to DB during insert", "pi", dbPaymentIntent.PaymentIntentID, "horoscope", horoscope, "error", err, "aiResponse", aiResponse)
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(map[string]any{
+			"horoscope": horoscope,
+		})
+		return
 	}
 
-	// Update the PI row
+	err = tx.Commit(r.Context())
+	if err != nil {
+		// Again, this is our problem at this point
+		slog.Error("Error adding horoscope to DB during commit", "pi", dbPaymentIntent.PaymentIntentID, "horoscope", horoscope, "error", err, "aiResponse", aiResponse)
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(map[string]any{
+			"horoscope": horoscope,
+		})
+		return
+	}
 
-	// Update the generations row
-	// TODO debug
+	//
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]any{
-		"db_pi":     dbPaymentIntent,
-		"stripe_pi": stripePaymentIntent,
+		"horoscope": horoscope,
 	})
 
 }
