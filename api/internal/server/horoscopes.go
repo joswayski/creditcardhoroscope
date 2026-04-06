@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -155,7 +156,7 @@ func (s *Server) CreateHoroscope(w http.ResponseWriter, r *http.Request) {
 		// To not give the presense of the streaming/ai interface vibes
 		// Should look more like a finished response
 		aiResponse, aiErr = s.AI.Responses.New(r.Context(), responses.ResponseNewParams{
-			Model:        s.Config.AIModel,
+			Model:        "poop",
 			Instructions: openai.String(s.Config.AISystemPrompt),
 			Input: responses.ResponseNewParamsInputUnion{
 				OfString: openai.String(horoscopes.FormatUserMessage(&dbPaymentIntent)),
@@ -168,11 +169,23 @@ func (s *Server) CreateHoroscope(w http.ResponseWriter, r *http.Request) {
 		slog.Error("AI Generation failed", "attempt", i, "error", aiErr, "pi", dbPaymentIntent.PaymentIntentID)
 
 		if i >= maxRetries {
+			go func() {
+				//  Try to write the failure in the background
+				_, err = s.DB.Exec(context.Background(), `
+					INSERT INTO generations (payment_intent_id, status, error)
+					VALUES ($1, $2, $3)
+					`, dbPaymentIntent.ID, "failed", aiErr.Error())
+				if err != nil {
+					slog.Error("Error inserting failed generation", "pi", dbPaymentIntent.PaymentIntentID, "error", aiErr)
+				}
+			}()
+
 			w.WriteHeader(http.StatusInternalServerError)
 			json.NewEncoder(w).Encode(map[string]any{
 				"message": `Unfortunately, we could not generate a horoscope for you.`,
 			})
 			// TODO refund
+
 			return
 		}
 
