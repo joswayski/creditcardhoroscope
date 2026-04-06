@@ -178,9 +178,9 @@ func (s *Server) CreateHoroscope(w http.ResponseWriter, r *http.Request) {
 			go func() {
 				//  Try to write the failure in the background
 				_, err := s.DB.Exec(context.Background(), `
-					INSERT INTO generations (payment_intent_id, status, error)
-					VALUES ($1, $2, $3)
-					`, dbPaymentIntent.ID, "failed", errMsg)
+					INSERT INTO generations (payment_intent_id, status, error, updated_at)
+					VALUES ($1, $2, $3, $4)
+					`, dbPaymentIntent.ID, "failed", errMsg, time.Now().UTC())
 				if err != nil {
 					slog.Error("Error inserting failed generation", "pi", dbPaymentIntent.PaymentIntentID, "dbError", err.Error(), "aiError", errMsg)
 				}
@@ -251,9 +251,9 @@ func (s *Server) CreateHoroscope(w http.ResponseWriter, r *http.Request) {
 	// Update generations row
 	_, err = tx.Exec(r.Context(), `
 	INSERT INTO generations 
-	(payment_intent_id, status, or_gen_id, or_model, or_tokens_used, horoscope)
-	VALUES ($1, $2, $3, $4, $5, $6)
-	`, dbPaymentIntent.ID, "completed", aiResponse.ID, string(aiResponse.Model), aiResponse.Usage.TotalTokens, aiResponse.OutputText())
+	(payment_intent_id, status, or_gen_id, or_model, or_tokens_used, horoscope, updated_at)
+	VALUES ($1, $2, $3, $4, $5, $6, $7)
+	`, dbPaymentIntent.ID, "completed", aiResponse.ID, string(aiResponse.Model), aiResponse.Usage.TotalTokens, aiResponse.OutputText(), time.Now().UTC())
 
 	if err != nil {
 		// Again, this is our problem at this point
@@ -276,7 +276,7 @@ func (s *Server) CreateHoroscope(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//
+	// yay
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]any{
 		"horoscope": horoscope,
