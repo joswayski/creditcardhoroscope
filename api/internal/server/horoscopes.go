@@ -156,7 +156,7 @@ func (s *Server) CreateHoroscope(w http.ResponseWriter, r *http.Request) {
 		// To not give the presense of the streaming/ai interface vibes
 		// Should look more like a finished response
 		aiResponse, aiErr = s.AI.Responses.New(r.Context(), responses.ResponseNewParams{
-			Model:        "poop",
+			Model:        s.Config.AIModel,
 			Instructions: openai.String(s.Config.AISystemPrompt),
 			Input: responses.ResponseNewParamsInputUnion{
 				OfString: openai.String(horoscopes.FormatUserMessage(&dbPaymentIntent)),
