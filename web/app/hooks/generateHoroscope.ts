@@ -15,7 +15,7 @@ export const useGenerateHoroscope = () => {
   return useMutation({
     mutationFn: ({ paymentIntentId }: GenerateHoroscopeBody) =>
       axios.post<GenerateHoroscopeResponse>(`${API_URL}/api/v1/horoscopes`, {
-        paymentIntentId,
+        payment_intent_id: paymentIntentId,
       }),
   });
 };
