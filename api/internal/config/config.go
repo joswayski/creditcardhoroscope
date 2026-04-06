@@ -14,6 +14,8 @@ type Config struct {
 	// Required
 	AIBaseURL       string
 	AIAPIKey        string
+	AIModel         string
+	AISystemPrompt  string
 	DatabaseURL     string
 	StripeSecretKey string
 	SupportEmail    string
@@ -56,7 +58,16 @@ func LoadConfig() Config {
 	supportEmail := os.Getenv("SUPPORT_EMAIL")
 	if supportEmail == "" {
 		requiredEnvErrors = append(requiredEnvErrors, "SUPPORT_EMAIL")
+	}
 
+	aiModel := os.Getenv("AI_MODEL")
+	if aiModel == "" {
+		requiredEnvErrors = append(requiredEnvErrors, "AI_MODEL")
+	}
+
+	aiSystemPrompt := os.Getenv("AI_SYSTEM_PROMPT")
+	if aiSystemPrompt == "" {
+		requiredEnvErrors = append(requiredEnvErrors, "AI_SYSTEM_PROMPT")
 	}
 
 	// ! Must be last
@@ -74,6 +85,8 @@ func LoadConfig() Config {
 		// Required
 		AIBaseURL:       aiBaseURL,
 		AIAPIKey:        aiAPIKey,
+		AIModel:         aiModel,
+		AISystemPrompt:  aiSystemPrompt,
 		DatabaseURL:     dbUrl,
 		StripeSecretKey: stripeSecretKey,
 		SupportEmail:    supportEmail,

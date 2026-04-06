@@ -5,16 +5,22 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/openai/openai-go/v3"
+	"github.com/openai/openai-go/v3/responses"
 	"github.com/stripe/stripe-go/v85"
 )
 
 type CreateHoroscopeRequest struct {
 	PaymentIntentId string `json:"payment_intent_id"`
 }
+
+const maxRetries = 3
 
 func (s *Server) CreateHoroscope(w http.ResponseWriter, r *http.Request) {
 	// Check we received something
@@ -138,6 +144,40 @@ func (s *Server) CreateHoroscope(w http.ResponseWriter, r *http.Request) {
 			"message": "An error ocurred creating your horoscope, please try again",
 		})
 		return
+	}
+
+	var aiResponse *responses.Response
+	var aiErr error
+	for i := 1; i < maxRetries+1; i++ {
+		// Call AI API
+		// It is recommended to use a fast model here
+		// To not give the presense of the streaming/ai interface vibes
+		// Should look more like a finished response
+		aiResponse, aiErr = s.AI.Responses.New(r.Context(), responses.ResponseNewParams{
+			Model:        s.Config.AIModel,
+			Instructions: openai.String(s.Config.AISystemPrompt),
+			Input: responses.ResponseNewParamsInputUnion{
+				OfString: openai.String("user details"),
+			}})
+
+		if err == nil && aiResponse.Status != "failed" {
+			// Saul Goodman
+			break
+		}
+		slog.Error("AI Generation failed", "attempt", i, "error", aiErr, "pi", dbPaymentIntent.PaymentIntentID)
+
+		if i >= maxRetries {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]any{
+				"message": `Unfortunately, we could not generate a horoscope for you.`,
+			})
+			// TODO refund
+			return
+		}
+
+		// Retry
+		delay := 200 * math.Pow(2, float64(i))
+		time.Sleep(time.Millisecond * time.Duration(delay))
 	}
 
 	// TODO debug
