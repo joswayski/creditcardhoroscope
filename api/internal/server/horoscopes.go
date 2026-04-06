@@ -157,7 +157,7 @@ func (s *Server) CreateHoroscope(w http.ResponseWriter, r *http.Request) {
 		// Should look more like a finished response
 		aiResponse, aiErr = s.AI.Responses.New(r.Context(), responses.ResponseNewParams{
 			Model:        s.Config.AIModel,
-			Instructions: openai.String(s.Config.AISystemPrompt),
+			Instructions: openai.String(horoscopes.GetSystemPrompt(&s.Config)),
 			Input: responses.ResponseNewParamsInputUnion{
 				OfString: openai.String(horoscopes.FormatUserMessage(&dbPaymentIntent)),
 			}})
@@ -169,14 +169,20 @@ func (s *Server) CreateHoroscope(w http.ResponseWriter, r *http.Request) {
 		slog.Error("AI Generation failed", "attempt", i, "error", aiErr, "pi", dbPaymentIntent.PaymentIntentID)
 
 		if i >= maxRetries {
+			var errMsg string
+			if aiErr != nil {
+				errMsg = aiErr.Error()
+			} else {
+				errMsg = fmt.Sprintf("AI response status: %s - error %s", aiResponse.Status, aiResponse.Error.RawJSON())
+			}
 			go func() {
 				//  Try to write the failure in the background
-				_, err = s.DB.Exec(context.Background(), `
+				_, err := s.DB.Exec(context.Background(), `
 					INSERT INTO generations (payment_intent_id, status, error)
 					VALUES ($1, $2, $3)
-					`, dbPaymentIntent.ID, "failed", aiErr.Error())
+					`, dbPaymentIntent.ID, "failed", errMsg)
 				if err != nil {
-					slog.Error("Error inserting failed generation", "pi", dbPaymentIntent.PaymentIntentID, "error", aiErr)
+					slog.Error("Error inserting failed generation", "pi", dbPaymentIntent.PaymentIntentID, "dbError", err.Error(), "aiError", errMsg)
 				}
 			}()
 
