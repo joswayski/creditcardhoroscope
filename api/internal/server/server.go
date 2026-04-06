@@ -11,6 +11,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joswayski/creditcardhoroscope/api/internal/config"
 	"github.com/joswayski/creditcardhoroscope/api/internal/middleware"
+	"github.com/openai/openai-go/v3"
+	"github.com/openai/openai-go/v3/option"
 	"github.com/stripe/stripe-go/v85"
 )
 
@@ -20,10 +22,14 @@ type Server struct {
 	DB         *pgxpool.Pool
 	Stripe     *stripe.Client
 	cancel     context.CancelFunc
+	AI         openai.Client
 }
 
 func New(cfg config.Config, pool *pgxpool.Pool) *Server {
-	s := &Server{Config: cfg, DB: pool, Stripe: stripe.NewClient(cfg.StripeSecretKey)}
+	s := &Server{Config: cfg, DB: pool, Stripe: stripe.NewClient(cfg.StripeSecretKey), AI: openai.NewClient(
+		option.WithAPIKey(cfg.AIAPIKey),
+		option.WithBaseURL(cfg.AIBaseURL),
+	)}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	s.cancel = cancel

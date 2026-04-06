@@ -1,20 +1,29 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/joswayski/creditcardhoroscope/api/internal/horoscopes"
+	"github.com/joswayski/creditcardhoroscope/api/internal/types"
+	"github.com/openai/openai-go/v3"
+	"github.com/openai/openai-go/v3/responses"
 	"github.com/stripe/stripe-go/v85"
 )
 
 type CreateHoroscopeRequest struct {
 	PaymentIntentId string `json:"payment_intent_id"`
 }
+
+const maxRetries = 3
 
 func (s *Server) CreateHoroscope(w http.ResponseWriter, r *http.Request) {
 	// Check we received something
@@ -52,7 +61,7 @@ func (s *Server) CreateHoroscope(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	dbPaymentIntent, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[PaymentIntent])
+	dbPaymentIntent, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[types.PaymentIntent])
 	if err != nil {
 		slog.Error("Error getting payment intent", "error", err)
 		// TODO add better logging
@@ -72,9 +81,7 @@ func (s *Server) CreateHoroscope(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check the DB status before proceeding
-	// Pending gets let through because we're awaiting a generation
-	// Paid gets let through because we'll allow multiple generations (TODO)
-	if dbPaymentIntent.Status != "pending" && dbPaymentIntent.Status != "paid" {
+	if !dbPaymentIntent.AllowsGenerations() {
 		w.WriteHeader(http.StatusConflict)
 		json.NewEncoder(w).Encode(map[string]string{
 			"message": fmt.Sprintf("Unfortunately, this payment cannot be redeemed for a horoscope. If you have any questions email %s with this ID: %s", s.Config.SupportEmail, dbPaymentIntent.PaymentIntentID),
@@ -110,8 +117,8 @@ func (s *Server) CreateHoroscope(w http.ResponseWriter, r *http.Request) {
 	_, err = tx.Exec(r.Context(), `
 	UPDATE payment_intents
 	SET status = $1, card_brand = $2, card_exp_month = $3, card_exp_year = $4,
-	card_last_4 = $5, card_country = $6, card_postal = $7
-	WHERE id = $8`,
+	card_last_4 = $5, card_country = $6, card_postal = $7, updated_at = $8
+	WHERE id = $9`,
 		"paid",
 		cardDetails.brand,
 		cardDetails.expMonth,
@@ -119,6 +126,7 @@ func (s *Server) CreateHoroscope(w http.ResponseWriter, r *http.Request) {
 		cardDetails.last4,
 		cardDetails.country,
 		cardDetails.postalCode,
+		time.Now().UTC(),
 		dbPaymentIntent.ID)
 
 	if err != nil {
@@ -140,11 +148,138 @@ func (s *Server) CreateHoroscope(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO debug
+	var aiResponse *responses.Response
+	var aiErr error
+	for i := 1; i < maxRetries+1; i++ {
+		// Call AI API
+		// It is recommended to use a fast model here
+		// To not give the presense of the streaming/ai interface vibes
+		// Should look more like a finished response
+		aiResponse, aiErr = s.AI.Responses.New(r.Context(), responses.ResponseNewParams{
+			Model:        s.Config.AIModel,
+			Instructions: openai.String(horoscopes.GetSystemPrompt(&s.Config)),
+			Input: responses.ResponseNewParamsInputUnion{
+				OfString: openai.String(horoscopes.FormatUserMessage(&dbPaymentIntent)),
+			}})
+
+		if aiErr == nil && aiResponse.Status != "failed" {
+			// Saul Goodman
+			break
+		}
+		slog.Error("AI Generation failed", "attempt", i, "error", aiErr, "pi", dbPaymentIntent.PaymentIntentID)
+
+		if i >= maxRetries {
+			var errMsg string
+			if aiErr != nil {
+				errMsg = aiErr.Error()
+			} else {
+				errMsg = fmt.Sprintf("AI response status: %s - error %s", aiResponse.Status, aiResponse.Error.RawJSON())
+			}
+			go func() {
+				//  Try to write the failure in the background
+				_, err := s.DB.Exec(context.Background(), `
+					INSERT INTO generations (payment_intent_id, status, error, updated_at)
+					VALUES ($1, $2, $3, $4)
+					`, dbPaymentIntent.ID, "failed", errMsg, time.Now().UTC())
+				if err != nil {
+					slog.Error("Error inserting failed generation", "pi", dbPaymentIntent.PaymentIntentID, "dbError", err.Error(), "aiError", errMsg)
+				}
+			}()
+
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]any{
+				"message": `Unfortunately, we could not generate a horoscope for you.`,
+			})
+			// TODO refund
+			// TODO also handle the refund event in a wh
+
+			return
+		}
+
+		// Retry
+		delay := 200 * math.Pow(2, float64(i))
+		time.Sleep(time.Millisecond * time.Duration(delay))
+	}
+
+	horoscope := aiResponse.OutputText()
+	tx, err = s.DB.Begin(r.Context())
+	if err != nil {
+		slog.Error("Error starting transaction after horoscope was generated", "pi", dbPaymentIntent.PaymentIntentID, "horoscope", horoscope, "aiResponse", aiResponse)
+		w.WriteHeader(http.StatusCreated)
+		// This is our issue at this point but we can still give the user a good time
+		json.NewEncoder(w).Encode(map[string]any{
+			"horoscope": horoscope,
+		})
+		return
+	}
+	defer tx.Rollback(r.Context())
+
+	// Lock the PI again
+	rows, err = tx.Query(r.Context(), `
+	SELECT * FROM payment_intents 
+	WHERE id = $1 FOR UPDATE
+	`, dbPaymentIntent.ID)
+
+	if err != nil {
+		slog.Error("Error retrieving horoscope from DB while adding generation", "pi", dbPaymentIntent.PaymentIntentID, "horoscope", horoscope, "error", err, "aiResponse", aiResponse)
+		w.WriteHeader(http.StatusCreated)
+		// This is our issue at this point but we can still give the user a good time
+		json.NewEncoder(w).Encode(map[string]any{
+			"horoscope": horoscope,
+		})
+		return
+	}
+
+	dbPaymentIntent, err = pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[types.PaymentIntent])
+	if err != nil {
+		slog.Error("Error retrieving horoscope from DB while adding generation 2", "pi", dbPaymentIntent.PaymentIntentID, "horoscope", horoscope, "error", err, "aiResponse", aiResponse)
+		w.WriteHeader(http.StatusCreated)
+		// This is our issue at this point but we can still give the user a good time
+		json.NewEncoder(w).Encode(map[string]any{
+			"horoscope": horoscope,
+		})
+		return
+	}
+
+	if !dbPaymentIntent.AllowsGenerations() {
+		w.WriteHeader(http.StatusConflict)
+		json.NewEncoder(w).Encode(map[string]string{
+			"message": fmt.Sprintf("Unfortunately, this payment cannot be redeemed for a horoscope. If you have any questions email %s with this ID: %s", s.Config.SupportEmail, dbPaymentIntent.PaymentIntentID),
+		})
+		return
+	}
+	// Update generations row
+	_, err = tx.Exec(r.Context(), `
+	INSERT INTO generations 
+	(payment_intent_id, status, or_gen_id, or_model, or_tokens_used, horoscope, updated_at)
+	VALUES ($1, $2, $3, $4, $5, $6, $7)
+	`, dbPaymentIntent.ID, "completed", aiResponse.ID, string(aiResponse.Model), aiResponse.Usage.TotalTokens, aiResponse.OutputText(), time.Now().UTC())
+
+	if err != nil {
+		// Again, this is our problem at this point
+		slog.Error("Error adding horoscope to DB during insert", "pi", dbPaymentIntent.PaymentIntentID, "horoscope", horoscope, "error", err, "aiResponse", aiResponse)
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(map[string]any{
+			"horoscope": horoscope,
+		})
+		return
+	}
+
+	err = tx.Commit(r.Context())
+	if err != nil {
+		// Again, this is our problem at this point
+		slog.Error("Error adding horoscope to DB during commit", "pi", dbPaymentIntent.PaymentIntentID, "horoscope", horoscope, "error", err, "aiResponse", aiResponse)
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(map[string]any{
+			"horoscope": horoscope,
+		})
+		return
+	}
+
+	// yay
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]any{
-		"db_pi":     dbPaymentIntent,
-		"stripe_pi": stripePaymentIntent,
+		"horoscope": horoscope,
 	})
 
 }
