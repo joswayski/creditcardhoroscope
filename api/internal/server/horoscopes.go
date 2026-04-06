@@ -180,6 +180,8 @@ func (s *Server) CreateHoroscope(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(time.Millisecond * time.Duration(delay))
 	}
 
+	horoscope := aiResponse.OutputText()
+
 	// TODO debug
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]any{
