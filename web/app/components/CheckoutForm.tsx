@@ -4,7 +4,7 @@ import {
   useStripe,
 } from "@stripe/react-stripe-js";
 import type { StripePaymentElementOptions } from "@stripe/stripe-js";
-import { useState } from "react";
+import { type FormEvent, useState } from "react";
 import { Disclaimer } from "./Disclaimer";
 import { PaymentIntentError } from "./PiError";
 import { useGenerateHoroscope } from "~/hooks/generateHoroscope";

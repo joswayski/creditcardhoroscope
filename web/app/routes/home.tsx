@@ -26,7 +26,7 @@ const loader = "auto";
 
 export default function Home() {
   const createPi = useCreatePaymentIntent();
-  const clientSecret = createPi?.data?.data?.clientSecret;
+  const clientSecret = createPi?.data?.data?.client_secret;
   return (
     <div className=" flex flex-col min-h-screen">
       <main className="flex-1 items-center justify-center pt-16 pb-4 flex-col">
