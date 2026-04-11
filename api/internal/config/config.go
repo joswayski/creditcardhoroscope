@@ -13,11 +13,10 @@ type Config struct {
 	Port string // Defaults to 8080
 
 	// Required
-	AIBaseURL      string
-	AIAPIKey       string
-	AIModel        string
-	AISystemPrompt string
-
+	AIBaseURL         string
+	AIAPIKey          string
+	AIModel           string
+	AISystemPrompt    string
 	DatabaseURL       string
 	StripeSecretKey   string
 	SupportEmail      string
