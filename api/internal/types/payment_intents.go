@@ -18,10 +18,8 @@ type PaymentIntent struct {
 	CardPostal      *string   `db:"card_postal"`
 }
 
-const maxGenerationCount = 3
-
 // Pending gets let through because we're awaiting a generation
 // Paid gets let through because we'll allow multiple generations (TODO)
-func (pi *PaymentIntent) AllowsGenerations(currentGenerationCount int) bool {
-	return (pi.Status == "pending" || pi.Status == "paid") && currentGenerationCount < maxGenerationCount
+func (pi *PaymentIntent) AllowsGenerations(currentGenerationCount int, maxHoroscopeLimit int) bool {
+	return (pi.Status == "pending" || pi.Status == "paid") && currentGenerationCount < maxHoroscopeLimit
 }

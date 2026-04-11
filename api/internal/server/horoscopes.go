@@ -90,7 +90,7 @@ func (s *Server) CreateHoroscope(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check the DB status before proceeding
-	if !dbPaymentIntent.AllowsGenerations(currentGenerationCount) {
+	if !dbPaymentIntent.AllowsGenerations(currentGenerationCount, s.Config.MaxHoroscopeLimit) {
 		w.WriteHeader(http.StatusConflict)
 		json.NewEncoder(w).Encode(map[string]string{
 			"message": fmt.Sprintf("Unfortunately, this payment cannot be redeemed for a horoscope. If you have any questions email %s with this ID: %s", s.Config.SupportEmail, dbPaymentIntent.PaymentIntentID),
@@ -257,7 +257,7 @@ func (s *Server) CreateHoroscope(w http.ResponseWriter, r *http.Request) {
 		slog.Error("Unable to retrieve count of horoscopes after AI generation", "error", err, "pi", dbPaymentIntent.ID)
 	}
 
-	if !dbPaymentIntent.AllowsGenerations(currentGenerationCount) {
+	if !dbPaymentIntent.AllowsGenerations(currentGenerationCount, s.Config.MaxHoroscopeLimit) {
 		w.WriteHeader(http.StatusConflict)
 		json.NewEncoder(w).Encode(map[string]string{
 			"message": fmt.Sprintf("Unfortunately, this payment cannot be redeemed for a horoscope. If you have any questions email %s with this ID: %s", s.Config.SupportEmail, dbPaymentIntent.PaymentIntentID),
