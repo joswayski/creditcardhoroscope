@@ -78,7 +78,7 @@ func LoadConfig() Config {
 	if maxHoroscopeLimitString != "" {
 		parsed, err := strconv.Atoi(maxHoroscopeLimitString)
 		if err != nil {
-			slog.Error(fmt.Sprintf("Failed to parse MAX_HOROSCOPE_LIMIT, defaulting to %d", maxHoroscopeLimit))
+			slog.Warn(fmt.Sprintf("Failed to parse MAX_HOROSCOPE_LIMIT, defaulting to %d", maxHoroscopeLimit))
 		} else {
 			maxHoroscopeLimit = parsed
 		}
