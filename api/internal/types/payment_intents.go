@@ -20,7 +20,6 @@ type PaymentIntent struct {
 
 // Pending gets let through because we're awaiting a generation
 // Paid gets let through because we'll allow multiple generations (TODO)
-// TODO allow multiple through here by passing count
-func (pi *PaymentIntent) AllowsGenerations() bool {
-	return pi.Status == "pending" || pi.Status == "paid"
+func (pi *PaymentIntent) AllowsGenerations(currentGenerationCount int, maxHoroscopeLimit int) bool {
+	return (pi.Status == "pending" || pi.Status == "paid") && currentGenerationCount < maxHoroscopeLimit
 }

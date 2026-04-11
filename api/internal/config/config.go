@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strconv"
 
 	"github.com/joho/godotenv"
 )
@@ -12,13 +13,14 @@ type Config struct {
 	Port string // Defaults to 8080
 
 	// Required
-	AIBaseURL       string
-	AIAPIKey        string
-	AIModel         string
-	AISystemPrompt  string
-	DatabaseURL     string
-	StripeSecretKey string
-	SupportEmail    string
+	AIBaseURL         string
+	AIAPIKey          string
+	AIModel           string
+	AISystemPrompt    string
+	DatabaseURL       string
+	StripeSecretKey   string
+	SupportEmail      string
+	MaxHoroscopeLimit int
 }
 
 func LoadConfig() Config {
@@ -70,6 +72,17 @@ func LoadConfig() Config {
 		requiredEnvErrors = append(requiredEnvErrors, "AI_SYSTEM_PROMPT")
 	}
 
+	maxHoroscopeLimit := 3
+	maxHoroscopeLimitString := os.Getenv("MAX_HOROSCOPE_LIMIT")
+	if maxHoroscopeLimitString != "" {
+		parsed, err := strconv.Atoi(maxHoroscopeLimitString)
+		if err != nil {
+			slog.Warn(fmt.Sprintf("Failed to parse MAX_HOROSCOPE_LIMIT, defaulting to %d", maxHoroscopeLimit))
+		} else {
+			maxHoroscopeLimit = parsed
+		}
+	}
+
 	// ! Must be last
 	if len(requiredEnvErrors) > 0 {
 		slog.Error("Missing required environment variables, cannot start!")
@@ -81,7 +94,9 @@ func LoadConfig() Config {
 	}
 
 	return Config{
-		Port: portString,
+		Port:              portString,
+		MaxHoroscopeLimit: maxHoroscopeLimit,
+
 		// Required
 		AIBaseURL:       aiBaseURL,
 		AIAPIKey:        aiAPIKey,

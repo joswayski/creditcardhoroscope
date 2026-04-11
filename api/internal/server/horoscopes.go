@@ -38,7 +38,6 @@ func (s *Server) CreateHoroscope(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check our DB to make sure it's still pending
-	// TODO in the future we will allow multiple uses
 	tx, err := s.DB.Begin(r.Context())
 	if err != nil {
 		slog.Error("Error starting transaction", "error", err)
@@ -80,8 +79,18 @@ func (s *Server) CreateHoroscope(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	currentGenerationCount, err := getCountOfHoroscopes(r.Context(), tx, dbPaymentIntent.ID)
+	if err != nil {
+		slog.Error("Unable to retrieve count of horoscopes after AI generation", "error", err, "pi", dbPaymentIntent.ID)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"message": "Sorry, an error ocurred :( Please try again!",
+		})
+		return
+	}
+
 	// Check the DB status before proceeding
-	if !dbPaymentIntent.AllowsGenerations() {
+	if !dbPaymentIntent.AllowsGenerations(currentGenerationCount, s.Config.MaxHoroscopeLimit) {
 		w.WriteHeader(http.StatusConflict)
 		json.NewEncoder(w).Encode(map[string]string{
 			"message": fmt.Sprintf("Unfortunately, this payment cannot be redeemed for a horoscope. If you have any questions email %s with this ID: %s", s.Config.SupportEmail, dbPaymentIntent.PaymentIntentID),
@@ -241,7 +250,14 @@ func (s *Server) CreateHoroscope(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !dbPaymentIntent.AllowsGenerations() {
+	// Check that we're still not at the limit
+	currentGenerationCount, err = getCountOfHoroscopes(r.Context(), tx, dbPaymentIntent.ID)
+	if err != nil {
+		// If it fails here it's our problem, we should continue regardless as the user already paid
+		slog.Error("Unable to retrieve count of horoscopes after AI generation", "error", err, "pi", dbPaymentIntent.ID)
+	}
+
+	if !dbPaymentIntent.AllowsGenerations(currentGenerationCount, s.Config.MaxHoroscopeLimit) {
 		w.WriteHeader(http.StatusConflict)
 		json.NewEncoder(w).Encode(map[string]string{
 			"message": fmt.Sprintf("Unfortunately, this payment cannot be redeemed for a horoscope. If you have any questions email %s with this ID: %s", s.Config.SupportEmail, dbPaymentIntent.PaymentIntentID),
@@ -308,4 +324,19 @@ func getCardDetails(pm *stripe.PaymentMethod) cardInfo {
 		country:    pm.Card.Country,
 		postalCode: postalCode,
 	}
+}
+
+func getCountOfHoroscopes(ctx context.Context, tx pgx.Tx, piId int64) (int, error) {
+	var currentGenerationCount int
+	err := tx.QueryRow(ctx, `
+	SELECT count(id) FROM generations
+	WHERE status != 'failed' AND
+	payment_intent_id = $1
+	`, piId).Scan(&currentGenerationCount)
+
+	if err != nil {
+		return 0, err
+	}
+
+	return currentGenerationCount, nil
 }
