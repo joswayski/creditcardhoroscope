@@ -47,13 +47,14 @@ func (rl *IPRateLimiter) Load(ip string) *rate.Limiter {
 	return rl.IPLimits[ip]
 }
 
-func RateLimit(ipRateLimiter *IPRateLimiter, next http.HandlerFunc) http.HandlerFunc {
+func RateLimit(ipRateLimiter *IPRateLimiter, next http.HandlerFunc, environment string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ip := GetIp(r)
 		rateLimitForIp := ipRateLimiter.Load(ip)
 
 		reservation := rateLimitForIp.Reserve()
-		if reservation.Delay() > 0 && ip != "::1" {
+		isLocal := ip == "::1" && environment == "development"
+		if reservation.Delay() > 0 && !isLocal {
 			// Put the token back as reserve takes a token
 			reservation.Cancel()
 			retryAfter := math.Ceil(reservation.Delay().Seconds())

@@ -1,6 +1,7 @@
 package webhooks
 
 // https://docs.stripe.com/ips
+// TODO fetch at startup
 var StripeIps = map[string]bool{
 	"3.18.12.63":     true,
 	"3.130.192.231":  true,

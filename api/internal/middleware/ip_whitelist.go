@@ -5,10 +5,11 @@ import (
 	"net/http"
 )
 
-func IPWhitelist(next http.HandlerFunc, ipWhitelist map[string]bool) http.HandlerFunc {
+func IPWhitelist(next http.HandlerFunc, ipWhitelist map[string]bool, environment string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ip := GetIp(r)
-		if !ipWhitelist[ip] && ip != "::1" { // local stripe
+		isLocal := ip == "::1" && environment == "development"
+		if !ipWhitelist[ip] && !isLocal { // local stripe
 			w.WriteHeader(http.StatusForbidden)
 			json.NewEncoder(w).Encode(map[string]string{})
 			return

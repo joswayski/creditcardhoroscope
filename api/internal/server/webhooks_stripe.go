@@ -52,7 +52,16 @@ func (s *Server) StripeWebhook(w http.ResponseWriter, r *http.Request) {
 			slog.Error("Invalid charge.refunded request", "raw", event.Data.Raw)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(map[string]string{
-				"message": "Invalid request - bad data",
+				"message": "Invalid request - bad data raw json",
+			})
+			return
+		}
+
+		if charge.PaymentIntent == nil {
+			slog.Error("Invalid charge.paymentIntent in request request", "raw", event.Data.Raw)
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{
+				"message": "Invalid request - bad data payment intent",
 			})
 			return
 		}
@@ -75,10 +84,19 @@ func (s *Server) StripeWebhook(w http.ResponseWriter, r *http.Request) {
 		SELECT id, status FROM payment_intents
 		WHERE payment_intent_id = $1 FOR UPDATE
 		`, charge.PaymentIntent.ID).Scan(&piId, &piStatus)
-		if errors.Is(pgx.ErrNoRows, err) {
+		if errors.Is(err, pgx.ErrNoRows) {
 			w.WriteHeader(http.StatusNotFound)
 			json.NewEncoder(w).Encode(map[string]string{
 				"message": fmt.Sprintf("Payment intent with ID %s not found", charge.PaymentIntent.ID),
+			})
+			return
+		}
+
+		if err != nil {
+			slog.Error("Error querying refund status of payment intent", "error", err, "pi", piId)
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(map[string]string{
+				"message": fmt.Sprintf("Error getting refund status for PI %s", charge.PaymentIntent.ID),
 			})
 			return
 		}
@@ -102,7 +120,7 @@ func (s *Server) StripeWebhook(w http.ResponseWriter, r *http.Request) {
 			slog.Error("Error updating refund status of payment intent", "error", err, "pi", piId)
 			w.WriteHeader(http.StatusInternalServerError)
 			json.NewEncoder(w).Encode(map[string]string{
-				"message": fmt.Sprintf("Unable to save refund of payment intent %s due to error %e", charge.PaymentIntent.ID, err),
+				"message": fmt.Sprintf("Unable to save refund of payment intent %s due to error", charge.PaymentIntent.ID),
 			})
 			return
 		}
@@ -112,7 +130,7 @@ func (s *Server) StripeWebhook(w http.ResponseWriter, r *http.Request) {
 			slog.Error("Error comitting refund status of payment intent", "error", err, "pi", piId)
 			w.WriteHeader(http.StatusInternalServerError)
 			json.NewEncoder(w).Encode(map[string]string{
-				"message": fmt.Sprintf("Unable to commit refund of payment intent %s due to error %e", charge.PaymentIntent.ID, err),
+				"message": fmt.Sprintf("Unable to commit refund of payment intent %s due to error", charge.PaymentIntent.ID),
 			})
 			return
 		}
