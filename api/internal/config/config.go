@@ -10,17 +10,19 @@ import (
 )
 
 type Config struct {
-	Port string // Defaults to 8080
+	Port        string // Defaults to 8080
+	Environment string // Defaults to development
 
 	// Required
-	AIBaseURL         string
-	AIAPIKey          string
-	AIModel           string
-	AISystemPrompt    string
-	DatabaseURL       string
-	StripeSecretKey   string
-	SupportEmail      string
-	MaxHoroscopeLimit int
+	AIBaseURL              string
+	AIAPIKey               string
+	AIModel                string
+	AISystemPrompt         string
+	DatabaseURL            string
+	StripeSecretKey        string
+	StripeWebhookSecretKey string
+	SupportEmail           string
+	MaxHoroscopeLimit      int
 }
 
 func LoadConfig() Config {
@@ -83,6 +85,11 @@ func LoadConfig() Config {
 		}
 	}
 
+	environment := os.Getenv("ENVIRONMENT")
+	if environment == "" {
+		environment = "development"
+	}
+
 	// ! Must be last
 	if len(requiredEnvErrors) > 0 {
 		slog.Error("Missing required environment variables, cannot start!")
@@ -105,5 +112,6 @@ func LoadConfig() Config {
 		DatabaseURL:     dbUrl,
 		StripeSecretKey: stripeSecretKey,
 		SupportEmail:    supportEmail,
+		Environment:     environment,
 	}
 }
