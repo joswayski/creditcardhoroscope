@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/stripe/stripe-go/v85"
@@ -48,6 +49,7 @@ func (s *Server) StripeWebhook(w http.ResponseWriter, r *http.Request) {
 		var charge stripe.Charge
 		err := json.Unmarshal(event.Data.Raw, &charge)
 		if err != nil {
+			slog.Error("Invalid charge.refunded request", "raw", event.Data.Raw)
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(map[string]string{
 				"message": "Invalid request - bad data",
@@ -92,11 +94,12 @@ func (s *Server) StripeWebhook(w http.ResponseWriter, r *http.Request) {
 		// Set to refund
 		_, err = tx.Exec(r.Context(), `
 		UPDATE payment_intents 
-		SET status = 'refunded'
+		SET status = 'refunded', updated_at = $2
 		WHERE id = $1`,
-			piId)
+			piId, time.Now().UTC())
 
 		if err != nil {
+			slog.Error("Error updating refund status of payment intent", "error", err, "pi", piId)
 			w.WriteHeader(http.StatusInternalServerError)
 			json.NewEncoder(w).Encode(map[string]string{
 				"message": fmt.Sprintf("Unable to save refund of payment intent %s due to error %e", charge.PaymentIntent.ID, err),
@@ -106,6 +109,7 @@ func (s *Server) StripeWebhook(w http.ResponseWriter, r *http.Request) {
 
 		err = tx.Commit(r.Context())
 		if err != nil {
+			slog.Error("Error comitting refund status of payment intent", "error", err, "pi", piId)
 			w.WriteHeader(http.StatusInternalServerError)
 			json.NewEncoder(w).Encode(map[string]string{
 				"message": fmt.Sprintf("Unable to commit refund of payment intent %s due to error %e", charge.PaymentIntent.ID, err),
