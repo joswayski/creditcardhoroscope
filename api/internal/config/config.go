@@ -59,6 +59,11 @@ func LoadConfig() Config {
 		requiredEnvErrors = append(requiredEnvErrors, "STRIPE_SECRET_KEY")
 	}
 
+	stripeWebhookSecretKey := os.Getenv("STRIPE_WEBHOOK_SECRET_KEY")
+	if stripeWebhookSecretKey == "" {
+		requiredEnvErrors = append(requiredEnvErrors, "STRIPE_WEBHOOK_SECRET_KEY")
+	}
+
 	supportEmail := os.Getenv("SUPPORT_EMAIL")
 	if supportEmail == "" {
 		requiredEnvErrors = append(requiredEnvErrors, "SUPPORT_EMAIL")
@@ -105,13 +110,14 @@ func LoadConfig() Config {
 		MaxHoroscopeLimit: maxHoroscopeLimit,
 
 		// Required
-		AIBaseURL:       aiBaseURL,
-		AIAPIKey:        aiAPIKey,
-		AIModel:         aiModel,
-		AISystemPrompt:  aiSystemPrompt,
-		DatabaseURL:     dbUrl,
-		StripeSecretKey: stripeSecretKey,
-		SupportEmail:    supportEmail,
-		Environment:     environment,
+		AIBaseURL:              aiBaseURL,
+		AIAPIKey:               aiAPIKey,
+		AIModel:                aiModel,
+		AISystemPrompt:         aiSystemPrompt,
+		DatabaseURL:            dbUrl,
+		StripeSecretKey:        stripeSecretKey,
+		StripeWebhookSecretKey: stripeWebhookSecretKey,
+		SupportEmail:           supportEmail,
+		Environment:            environment,
 	}
 }

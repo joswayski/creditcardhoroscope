@@ -53,7 +53,7 @@ func RateLimit(ipRateLimiter *IPRateLimiter, next http.HandlerFunc) http.Handler
 		rateLimitForIp := ipRateLimiter.Load(ip)
 
 		reservation := rateLimitForIp.Reserve()
-		if reservation.Delay() > 0 {
+		if reservation.Delay() > 0 && ip != "::1" {
 			// Put the token back as reserve takes a token
 			reservation.Cancel()
 			retryAfter := math.Ceil(reservation.Delay().Seconds())
