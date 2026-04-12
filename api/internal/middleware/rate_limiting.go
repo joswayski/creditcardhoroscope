@@ -5,9 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	"net"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
@@ -49,13 +47,14 @@ func (rl *IPRateLimiter) Load(ip string) *rate.Limiter {
 	return rl.IPLimits[ip]
 }
 
-func RateLimit(ipRateLimiter *IPRateLimiter, next http.HandlerFunc) http.HandlerFunc {
+func RateLimit(ipRateLimiter *IPRateLimiter, next http.HandlerFunc, environment string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ip := getIp(r)
+		ip := GetIp(r)
 		rateLimitForIp := ipRateLimiter.Load(ip)
 
 		reservation := rateLimitForIp.Reserve()
-		if reservation.Delay() > 0 {
+		isLocal := ip == "::1" && environment == "development"
+		if reservation.Delay() > 0 && !isLocal {
 			// Put the token back as reserve takes a token
 			reservation.Cancel()
 			retryAfter := math.Ceil(reservation.Delay().Seconds())
@@ -70,25 +69,6 @@ func RateLimit(ipRateLimiter *IPRateLimiter, next http.HandlerFunc) http.Handler
 
 		next(w, r)
 	}
-}
-
-func getIp(r *http.Request) string {
-	ip := r.Header.Get("X-Real-IP")
-	if ip == "" {
-		ip = r.Header.Get("X-Forwarded-For")
-		ip = strings.Split(ip, ",")[0] // can be multiple
-	}
-
-	if ip == "" {
-		host, _, err := net.SplitHostPort(r.RemoteAddr)
-		if err == nil {
-			ip = host
-		} else {
-			ip = r.RemoteAddr
-		}
-	}
-
-	return ip
 }
 
 func (rl *IPRateLimiter) BackgroundCleanup(ctx context.Context) {

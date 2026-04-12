@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joswayski/creditcardhoroscope/api/internal/config"
 	"github.com/joswayski/creditcardhoroscope/api/internal/middleware"
+	"github.com/joswayski/creditcardhoroscope/api/internal/webhooks"
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/option"
 	"github.com/stripe/stripe-go/v85"
@@ -41,12 +42,14 @@ func New(cfg config.Config, pool *pgxpool.Pool) *Server {
 
 	piRateLimiter := middleware.CreateRateLimiter(time.Second*5, 2)
 	go piRateLimiter.BackgroundCleanup(ctx)
-	mux.HandleFunc("POST /api/v1/payment-intents", middleware.RateLimit(piRateLimiter, s.CreatePaymentIntent))
+	mux.HandleFunc("POST /api/v1/payment-intents", middleware.BodySize(middleware.RateLimit(piRateLimiter, s.CreatePaymentIntent, s.Config.Environment), 0))
 
 	// TODO In the future we will allow multiple generations. For now to stop some spam
 	horoscopeRateLimiter := middleware.CreateRateLimiter(time.Second*5, 2)
 	go horoscopeRateLimiter.BackgroundCleanup(ctx)
-	mux.HandleFunc("POST /api/v1/horoscopes", middleware.RateLimit(horoscopeRateLimiter, s.CreateHoroscope))
+	mux.HandleFunc("POST /api/v1/horoscopes", middleware.BodySize(middleware.RateLimit(horoscopeRateLimiter, s.CreateHoroscope, s.Config.Environment), 512))
+
+	mux.HandleFunc("POST /api/v1/webhooks/stripe", middleware.BodySize(middleware.IPWhitelist(s.StripeWebhook, webhooks.StripeIps, s.Config.Environment), 69420))
 
 	// Catchall
 	mux.HandleFunc("/", s.FourOhFour)
@@ -54,7 +57,7 @@ func New(cfg config.Config, pool *pgxpool.Pool) *Server {
 	s.httpServer = &http.Server{
 		Addr: ":" + cfg.Port,
 		// left to right
-		Handler:      middleware.CORS(middleware.BodySize(middleware.JSONHeader(mux))),
+		Handler:      middleware.CORS(middleware.JSONResponseHeader(mux)),
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  30 * time.Second,
