@@ -10,8 +10,35 @@ import { PaymentIntentError } from "./PiError";
 import { useGenerateHoroscope } from "~/hooks/generateHoroscope";
 import { Spinner } from "./Spinner";
 import { AnimatePresence, motion } from "motion/react";
-import axios, { AxiosError } from "axios";
+import axios from "axios";
+import { Frown, Meh, Smile } from 'lucide-react';
 
+type IconProps = {
+  color: string
+  icon: React.ReactNode
+}
+const Icon = ({ color, icon }: IconProps) => {
+  return (<div className={`flex flex-col hover:cursor-pointer ${color} transition duration-150  scale-125 hover:scale-150`}>
+    {icon}
+  </div>
+  )
+}
+
+// TODo show after a timer
+// TODO click to send req
+
+const Feedback = () => {
+  return <div className="flex max-w-md justify-center">
+    <div className="flex flex-col justify-center space-y-4">
+      <p className="text-center font-bold ">How do you feel about your horoscope?</p>
+      <div className="flex flex-row justify-around p-5 overflow-visible ">
+        <Icon color="hover:text-red-500" icon={<Frown />}></Icon>
+        <Icon color="hover:text-yellow-500" icon={<Meh />}></Icon>
+        <Icon color="hover:text-emerald-500" icon={<Smile />}></Icon>
+      </div>
+    </div>
+  </div >
+}
 const getButtonColors = ({
   isLoading,
   isDisabled,
@@ -130,7 +157,7 @@ export function CheckoutForm({ clientSecret }: CheckoutFormProps) {
   const horoscope = generateHoroscope?.data?.data?.horoscope;
 
   return (
-    <div className="relative overflow-hidden">
+    <div className="relative overflow-visible">
       <AnimatePresence mode="wait">
         {horoscope ? (
           <motion.div
@@ -149,7 +176,14 @@ export function CheckoutForm({ clientSecret }: CheckoutFormProps) {
             }}
             className="flex max-w-3xl px-8 lg:px-2 text-white text-lg/8 text-pretty text-shadow-md"
           >
-            <p>{horoscope}</p>
+            <div className="flex flex-col">
+              <p>{horoscope}</p>
+              <div className="flex mt-10 justify-center">
+                <Feedback />
+              </div>
+
+            </div>
+
           </motion.div>
         ) : (
           <motion.form
