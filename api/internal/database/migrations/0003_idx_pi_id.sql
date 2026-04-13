@@ -1,1 +1,1 @@
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_payment_intents_pi ON payment_intents(payment_intent_id);
+CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS idx_payment_intents_pi ON payment_intents(payment_intent_id);

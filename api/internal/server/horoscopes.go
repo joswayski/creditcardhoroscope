@@ -264,13 +264,23 @@ func (s *Server) CreateHoroscope(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+
+	externalId, err := horoscopes.GetExternalId()
+	if err != nil {
+		slog.Error("Error getting external id for horoscope", "error", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"message": "We had a probelm generating your horoscope, please try again",
+		}) // todo handle collisions
+		return
+	}
+
 	// Update generations row
 	_, err = tx.Exec(r.Context(), `
 	INSERT INTO generations 
-	(payment_intent_id, status, or_gen_id, or_model, or_tokens_used, horoscope, updated_at)
-	VALUES ($1, $2, $3, $4, $5, $6, $7)
-	`, dbPaymentIntent.ID, "completed", aiResponse.ID, string(aiResponse.Model), aiResponse.Usage.TotalTokens, aiResponse.OutputText(), time.Now().UTC())
-
+	(payment_intent_id, status, or_gen_id, or_model, or_tokens_used, horoscope, updated_at, external_id)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+	`, dbPaymentIntent.ID, "completed", aiResponse.ID, string(aiResponse.Model), aiResponse.Usage.TotalTokens, aiResponse.OutputText(), time.Now().UTC(), externalId)
 	if err != nil {
 		// Again, this is our problem at this point
 		slog.Error("Error adding horoscope to DB during insert", "pi", dbPaymentIntent.PaymentIntentID, "horoscope", horoscope, "error", err, "aiResponse", aiResponse)

@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS payment_intents (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     
     -- Stripe Data
-    payment_intent_id TEXT UNIQUE NOT NULL, 
+    payment_intent_id TEXT NOT NULL, 
     amount INT NOT NULL,                      -- Amount charged in cents
     currency TEXT NOT NULL DEFAULT 'usd',
     status TEXT NOT NULL DEFAULT 'pending',   -- 'pending', 'processing', 'paid', 'refunded'
