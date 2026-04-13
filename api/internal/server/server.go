@@ -51,6 +51,10 @@ func New(cfg config.Config, pool *pgxpool.Pool) *Server {
 
 	mux.HandleFunc("POST /api/v1/webhooks/stripe", middleware.BodySize(middleware.IPWhitelist(s.StripeWebhook, webhooks.StripeIps, s.Config.Environment), 69420))
 
+	ratingRateLimiter := middleware.CreateRateLimiter(time.Hour*5, 2)
+	go ratingRateLimiter.BackgroundCleanup(ctx)
+	mux.HandleFunc("PATCH /api/v1/horoscopes/:id", middleware.BodySize(middleware.RateLimit(ratingRateLimiter, s.RateHoroscope, s.Config.Environment), 512))
+
 	// Catchall
 	mux.HandleFunc("/", s.FourOhFour)
 
