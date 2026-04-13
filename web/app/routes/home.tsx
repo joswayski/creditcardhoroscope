@@ -51,7 +51,15 @@ export default function Home() {
           )}
         </div>
       </main>
-      <Footer />
+      <div
+        className="sticky bottom-0 z-10"
+        style={{
+          backgroundImage: "url('/stars3.gif')",
+          backgroundRepeat: "repeat",
+        }}
+      >
+        <Footer />
+      </div>
     </div>
   );
 }

@@ -130,7 +130,7 @@ export function CheckoutForm({ clientSecret }: CheckoutFormProps) {
   const horoscope = generateHoroscope?.data?.data?.horoscope;
 
   return (
-    <div className="relative min-h-[400px] overflow-hidden">
+    <div className="relative overflow-hidden">
       <AnimatePresence mode="wait">
         {horoscope ? (
           <motion.div
@@ -157,17 +157,14 @@ export function CheckoutForm({ clientSecret }: CheckoutFormProps) {
             initial={{ opacity: 1, y: 0 }}
             exit={{
               opacity: 0,
-              y: 20,
-              clipPath: "inset(100% 0 0 0)",
             }}
             transition={{
-              duration: 1.0,
+              duration: 0.5,
               ease: [0.4, 0, 0.2, 1],
-              clipPath: { duration: 1.0, ease: [0.4, 0, 0.2, 1] },
             }}
             id="payment-form"
             onSubmit={handleSubmit}
-            className="items-center justify-center flex flex-col w-full px-8 lg:px-4"
+            className="items-center justify-center flex flex-col w-full px-8 lg:px-4 min-h-[400px]"
           >
             <PaymentElement
               id="payment-element"
