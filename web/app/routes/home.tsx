@@ -9,7 +9,7 @@ import { Footer } from "~/components/Footer";
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
-export function meta({}: Route.MetaArgs) {
+export function meta({ }: Route.MetaArgs) {
   return [
     { title: "Credit Card Horoscope" },
     {
