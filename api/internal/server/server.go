@@ -53,7 +53,7 @@ func New(cfg config.Config, pool *pgxpool.Pool) *Server {
 
 	ratingRateLimiter := middleware.CreateRateLimiter(time.Hour*5, 2)
 	go ratingRateLimiter.BackgroundCleanup(ctx)
-	mux.HandleFunc("PATCH /api/v1/horoscopes/{id}", middleware.BodySize(middleware.RateLimit(ratingRateLimiter, s.RateHoroscope, s.Config.Environment), 512))
+	mux.HandleFunc("PATCH /api/v1/horoscopes/{id}/rate", middleware.BodySize(middleware.RateLimit(ratingRateLimiter, s.RateHoroscope, s.Config.Environment), 512))
 
 	// Catchall
 	mux.HandleFunc("/", s.FourOhFour)
