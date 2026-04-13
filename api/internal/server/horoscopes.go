@@ -305,7 +305,8 @@ func (s *Server) CreateHoroscope(w http.ResponseWriter, r *http.Request) {
 	// yay
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]any{
-		"horoscope": horoscope,
+		"horoscope":   horoscope,
+		"external_id": externalId,
 	})
 
 }

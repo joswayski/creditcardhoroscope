@@ -12,9 +12,9 @@ type AddRatingRequest = {
     rating: string
 }
 
-export const useAddRating = ({ horoscopeId, paymentIntentId, rating }: AddRatingRequest) => {
+export const useAddRating = () => {
     return useMutation({
-        mutationFn: () =>
+        mutationFn: ({ horoscopeId, paymentIntentId, rating }: AddRatingRequest) =>
             axios.patch<AddRatingResponse>(`${API_URL}/api/v1/horoscopes/${horoscopeId}/rate`, {
                 payment_intent_id: paymentIntentId,
                 rating
