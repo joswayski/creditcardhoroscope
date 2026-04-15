@@ -6,6 +6,7 @@ import (
 
 	"github.com/joswayski/creditcardhoroscope/api/internal/config"
 	"github.com/joswayski/creditcardhoroscope/api/internal/types"
+	gonanoid "github.com/matoous/go-nanoid/v2"
 )
 
 func GetSystemPrompt(cfg *config.Config) string {
@@ -66,4 +67,18 @@ Card Details:
 
 func getMissingMessage(field string) string {
 	return fmt.Sprintf("{{ADMIN MESSAGE: NO CARD %s PROVIDED - DO NOT INCLUDE THIS IN THE RESPONSE}}", field)
+}
+
+const customAlphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+func GetExternalId() (string, error) {
+	var lastError error
+	for range 100 {
+		id, err := gonanoid.Generate(customAlphabet, 10)
+		if err == nil {
+			return id, err
+		}
+		lastError = err
+	}
+	return "", lastError
 }

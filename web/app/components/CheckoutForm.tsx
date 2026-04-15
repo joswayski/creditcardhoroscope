@@ -4,14 +4,43 @@ import {
   useStripe,
 } from "@stripe/react-stripe-js";
 import type { StripePaymentElementOptions } from "@stripe/stripe-js";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { Disclaimer } from "./Disclaimer";
 import { PaymentIntentError } from "./PiError";
 import { useGenerateHoroscope } from "~/hooks/generateHoroscope";
 import { Spinner } from "./Spinner";
-import { AnimatePresence, motion } from "motion/react";
-import axios, { AxiosError } from "axios";
+import { AnimatePresence, easeInOut, motion } from "motion/react";
+import axios from "axios";
+import { Frown, Meh, Smile } from 'lucide-react';
 
+type IconProps = {
+  color: string
+  icon: React.ReactNode
+}
+const Icon = ({ color, icon }: IconProps) => {
+  return (<div className={`flex flex-col hover:cursor-pointer ${color} transition duration-150  scale-125 hover:scale-150`}>
+    {icon}
+  </div>
+  )
+}
+
+// TODO click to send req
+
+
+
+
+const Feedback = () => {
+  return <div className="flex max-w-sm justify-center">
+    <div className="flex flex-col justify-center space-y-4">
+      <p className="text-center font-bold ">How do you feel about your horoscope?</p>
+      <div className="flex flex-row justify-around p-5 overflow-visible ">
+        <Icon color="text-red-500" icon={<Frown />}></Icon>
+        <Icon color="text-yellow-500" icon={<Meh />}></Icon>
+        <Icon color="text-emerald-500" icon={<Smile />}></Icon>
+      </div>
+    </div>
+  </div >
+}
 const getButtonColors = ({
   isLoading,
   isDisabled,
@@ -49,6 +78,7 @@ export function CheckoutForm({ clientSecret }: CheckoutFormProps) {
   const [errorMessage, setErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isDisclaimerChecked, setIsDisclaimerChecked] = useState(false);
+  const [feedbackVisible, setFeedbackVisible] = useState(false)
   const isButtonDisabled =
     isLoading || !stripe || !elements || !isDisclaimerChecked;
   const button = getButtonColors({
@@ -129,8 +159,19 @@ export function CheckoutForm({ clientSecret }: CheckoutFormProps) {
 
   const horoscope = generateHoroscope?.data?.data?.horoscope;
 
+
+  useEffect(() => {
+    if (horoscope) {
+      const timer = setTimeout(() => {
+        setFeedbackVisible(true)
+      }, 8000)
+
+      return () => clearTimeout(timer)
+    }
+  }, [horoscope])
+
   return (
-    <div className="relative min-h-[400px] overflow-hidden">
+    <div className="relative overflow-visible">
       <AnimatePresence mode="wait">
         {horoscope ? (
           <motion.div
@@ -149,7 +190,32 @@ export function CheckoutForm({ clientSecret }: CheckoutFormProps) {
             }}
             className="flex max-w-3xl px-8 lg:px-2 text-white text-lg/8 text-pretty text-shadow-md"
           >
-            <p>{horoscope}</p>
+            <div className="flex flex-col">
+              <p>{horoscope}</p>
+              {feedbackVisible &&
+
+
+                <motion.div
+                  className="flex mt-10 justify-center"
+                  // Animate when this value changes:
+                  // Fade in when the element enters the viewport:
+                  initial={{ opacity: 0, scale: 1 }}
+                  animate={{ opacity: 1, scale: 1.05 }}
+
+                  // Animate the component when its layout changes:
+                  layout
+
+                  transition={{ duration: 3, ease: easeInOut }}
+
+
+                >
+                  <Feedback />
+
+                </motion.div>
+              }
+
+            </div>
+
           </motion.div>
         ) : (
           <motion.form
@@ -157,17 +223,14 @@ export function CheckoutForm({ clientSecret }: CheckoutFormProps) {
             initial={{ opacity: 1, y: 0 }}
             exit={{
               opacity: 0,
-              y: 20,
-              clipPath: "inset(100% 0 0 0)",
             }}
             transition={{
-              duration: 1.0,
+              duration: 0.5,
               ease: [0.4, 0, 0.2, 1],
-              clipPath: { duration: 1.0, ease: [0.4, 0, 0.2, 1] },
             }}
             id="payment-form"
             onSubmit={handleSubmit}
-            className="items-center justify-center flex flex-col w-full px-8 lg:px-4"
+            className="items-center justify-center flex flex-col w-full px-8 lg:px-4 min-h-[400px]"
           >
             <PaymentElement
               id="payment-element"
