@@ -5,6 +5,7 @@ import (
 	"embed"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -39,11 +40,12 @@ func RunMigrations(pool *pgxpool.Pool) error {
 		return err
 	}
 
-	tx, err := pool.Begin(context.Background())
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback(context.Background())
+	// TODO in the future allow concurrently index creation
+	// tx, err := pool.Begin(context.Background())
+	// if err != nil {
+	// 	return err
+	// }
+	// defer tx.Rollback(context.Background())
 
 	// Get the current migrations in /migrations
 	localMigrations, err := migrationFiles.ReadDir("migrations")
@@ -73,14 +75,31 @@ func RunMigrations(pool *pgxpool.Pool) error {
 			slog.Error("Error reading migration file", "file_name", m.Name(), "error", err)
 			return err
 		}
-		_, err = tx.Exec(context.Background(), string(migrationSql))
-		if err != nil {
-			slog.Error("Error executing migration", "file_name", m.Name(), "error", err)
-			return err
+
+		sql := string(migrationSql)
+		if strings.Contains(strings.ToUpper(sql), "CONCURRENTLY") {
+			// SQLSTATE 25001
+			conn, err := pool.Acquire(context.Background())
+			if err != nil {
+				return err
+			}
+
+			_, err = conn.Conn().PgConn().Exec(context.Background(), sql).ReadAll()
+			conn.Release()
+			if err != nil {
+				slog.Error("Error executing migration", "file_name", m.Name(), "error", err)
+				return err
+			}
+		} else {
+			_, err = pool.Exec(context.Background(), sql)
+			if err != nil {
+				slog.Error("Error executing migration", "file_name", m.Name(), "error", err)
+				return err
+			}
 		}
 
 		// Update the migrations table
-		_, err = tx.Exec(context.Background(), `
+		_, err = pool.Exec(context.Background(), `
 		INSERT INTO migrations (name) VALUES ($1)`, m.Name())
 		if err != nil {
 			slog.Error("Error executing migration table update", "file_name", m.Name(), "error", err)
@@ -89,10 +108,10 @@ func RunMigrations(pool *pgxpool.Pool) error {
 
 		slog.Info(fmt.Sprintf("Migration %s applied", m.Name()))
 	}
-	err = tx.Commit(context.Background())
-	if err != nil {
-		return err
-	}
+	// err = pool.Commit(context.Background())
+	// if err != nil {
+	// 	return err
+	// }
 
 	return nil
 }

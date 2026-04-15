@@ -1,4 +1,3 @@
--- Table 1: Payment Intents
 CREATE TABLE IF NOT EXISTS payment_intents (
     -- Metadata
     id BIGSERIAL PRIMARY KEY,
@@ -6,7 +5,7 @@ CREATE TABLE IF NOT EXISTS payment_intents (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     
     -- Stripe Data
-    payment_intent_id TEXT UNIQUE NOT NULL, 
+    payment_intent_id TEXT NOT NULL, 
     amount INT NOT NULL,                      -- Amount charged in cents
     currency TEXT NOT NULL DEFAULT 'usd',
     status TEXT NOT NULL DEFAULT 'pending',   -- 'pending', 'processing', 'paid', 'refunded'
@@ -39,16 +38,4 @@ CREATE TABLE IF NOT EXISTS generations (
     or_model TEXT,
     or_tokens_used INT,
     horoscope TEXT
-
-    -- TBD
-    -- external_id TEXT UNIQUE NOT NULL,
-    -- is_public BOOLEAN default false,
-    -- rating TEXT -- 'positive', 'negative', 'neutral'
 );
-
--- Indexes
-CREATE INDEX IF NOT EXISTS idx_generations_pi_created 
-ON generations(payment_intent_id, created_at DESC);
-
-CREATE INDEX IF NOT EXISTS idx_payment_intents_pi ON payment_intents(payment_intent_id);
-

@@ -9,6 +9,7 @@ type GenerateHoroscopeBody = {
 type GenerateHoroscopeResponse = {
   message: string;
   horoscope: string;
+  external_id?: string;
 };
 
 export const useGenerateHoroscope = () => {
