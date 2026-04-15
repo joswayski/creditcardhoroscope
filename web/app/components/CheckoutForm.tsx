@@ -12,35 +12,9 @@ import { Spinner } from "./Spinner";
 import { AnimatePresence, easeInOut, motion } from "motion/react";
 import axios from "axios";
 import { Frown, Meh, Smile } from 'lucide-react';
-
-type IconProps = {
-  color: string
-  icon: React.ReactNode
-}
-const Icon = ({ color, icon }: IconProps) => {
-  return (<div className={`flex flex-col hover:cursor-pointer ${color} transition duration-150  scale-125 hover:scale-150`}>
-    {icon}
-  </div>
-  )
-}
-
-// TODO click to send req
+import { useAddRating, type AddRatingRequest } from "~/hooks/addRating";
 
 
-
-
-const Feedback = () => {
-  return <div className="flex max-w-sm justify-center">
-    <div className="flex flex-col justify-center space-y-4">
-      <p className="text-center font-bold ">How do you feel about your horoscope?</p>
-      <div className="flex flex-row justify-around p-5 overflow-visible ">
-        <Icon color="text-red-500" icon={<Frown />}></Icon>
-        <Icon color="text-yellow-500" icon={<Meh />}></Icon>
-        <Icon color="text-emerald-500" icon={<Smile />}></Icon>
-      </div>
-    </div>
-  </div >
-}
 const getButtonColors = ({
   isLoading,
   isDisabled,
@@ -71,6 +45,63 @@ const paymentElementOptions: StripePaymentElementOptions = {
   layout: "accordion",
 };
 
+
+type IconProps = {
+  color: string
+  icon: React.ReactNode
+  callback: () => void
+}
+const Icon = ({ color, icon, callback }: IconProps) => {
+  return (<div onClick={callback} className={`flex flex-col hover:cursor-pointer ${color} transition duration-150  scale-125 hover:scale-150`}>
+    {icon}
+  </div>
+  )
+}
+
+// TODO click to send req
+
+
+
+
+const Feedback = ({ horoscopeId, paymentIntentId }) => {
+  const addRating = useAddRating()
+
+
+
+
+  const handleRating = (addRatingRequest: AddRatingRequest) => {
+    addRating.mutate(addRatingRequest)
+  }
+
+  if (!addRating.isIdle) {
+    return <p className="text-center font-bold">Thanks for your feedback!</p>
+  }
+
+  return <div className="flex max-w-sm justify-center">
+    <div className="flex flex-col justify-center space-y-4">
+      <p className="text-center font-bold ">How do you feel about your horoscope?</p>
+      <div className="flex flex-row justify-around p-5 overflow-visible ">
+        <Icon callback={() => handleRating({
+          horoscopeId,
+          paymentIntentId,
+          rating: "negative"
+        })} color="text-red-500" icon={<Frown />}></Icon>
+        <Icon callback={() => handleRating({
+          horoscopeId,
+          paymentIntentId,
+          rating: "neutral"
+        })} color="text-yellow-500" icon={<Meh />}></Icon>
+        <Icon callback={() => handleRating({
+          horoscopeId,
+          paymentIntentId,
+          rating: "positive"
+        })} color="text-emerald-500" icon={<Smile />}></Icon>
+      </div>
+    </div>
+  </div >
+}
+
+
 export function CheckoutForm({ clientSecret }: CheckoutFormProps) {
   const stripe = useStripe();
   const elements = useElements();
@@ -79,6 +110,9 @@ export function CheckoutForm({ clientSecret }: CheckoutFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isDisclaimerChecked, setIsDisclaimerChecked] = useState(false);
   const [feedbackVisible, setFeedbackVisible] = useState(false)
+  const [paymentIntentId, setPaymentIntentId] = useState<null | string>(null)
+  const [horoscopeId, setHoroscopeId] = useState<null | string>(null)
+
   const isButtonDisabled =
     isLoading || !stripe || !elements || !isDisclaimerChecked;
   const button = getButtonColors({
@@ -140,6 +174,7 @@ export function CheckoutForm({ clientSecret }: CheckoutFormProps) {
         },
         {
           onSuccess: () => {
+            setPaymentIntentId(paymentIntent.id)
             setIsLoading(false);
           },
           onError: (e) => {
@@ -193,24 +228,14 @@ export function CheckoutForm({ clientSecret }: CheckoutFormProps) {
             <div className="flex flex-col">
               <p>{horoscope}</p>
               {feedbackVisible &&
-
-
                 <motion.div
                   className="flex mt-10 justify-center"
-                  // Animate when this value changes:
-                  // Fade in when the element enters the viewport:
                   initial={{ opacity: 0, scale: 1 }}
                   animate={{ opacity: 1, scale: 1.05 }}
-
-                  // Animate the component when its layout changes:
                   layout
-
                   transition={{ duration: 3, ease: easeInOut }}
-
-
                 >
-                  <Feedback />
-
+                  <Feedback paymentIntentId={paymentIntentId} horoscopeId={generateHoroscope?.data?.data?.external_id} />
                 </motion.div>
               }
 

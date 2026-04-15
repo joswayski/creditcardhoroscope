@@ -6,10 +6,10 @@ type AddRatingResponse = {
     message: string;
 };
 
-type AddRatingRequest = {
+export type AddRatingRequest = {
     horoscopeId: string
     paymentIntentId: string
-    rating: string
+    rating: "positive" | "negative" | "neutral"
 }
 
 export const useAddRating = () => {
