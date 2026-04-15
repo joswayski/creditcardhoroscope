@@ -4,12 +4,12 @@ import {
   useStripe,
 } from "@stripe/react-stripe-js";
 import type { StripePaymentElementOptions } from "@stripe/stripe-js";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { Disclaimer } from "./Disclaimer";
 import { PaymentIntentError } from "./PiError";
 import { useGenerateHoroscope } from "~/hooks/generateHoroscope";
 import { Spinner } from "./Spinner";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, easeInOut, motion } from "motion/react";
 import axios from "axios";
 import { Frown, Meh, Smile } from 'lucide-react';
 
@@ -24,17 +24,19 @@ const Icon = ({ color, icon }: IconProps) => {
   )
 }
 
-// TODo show after a timer
 // TODO click to send req
 
+
+
+
 const Feedback = () => {
-  return <div className="flex max-w-md justify-center">
+  return <div className="flex max-w-sm justify-center">
     <div className="flex flex-col justify-center space-y-4">
       <p className="text-center font-bold ">How do you feel about your horoscope?</p>
       <div className="flex flex-row justify-around p-5 overflow-visible ">
-        <Icon color="hover:text-red-500" icon={<Frown />}></Icon>
-        <Icon color="hover:text-yellow-500" icon={<Meh />}></Icon>
-        <Icon color="hover:text-emerald-500" icon={<Smile />}></Icon>
+        <Icon color="text-red-500" icon={<Frown />}></Icon>
+        <Icon color="text-yellow-500" icon={<Meh />}></Icon>
+        <Icon color="text-emerald-500" icon={<Smile />}></Icon>
       </div>
     </div>
   </div >
@@ -76,6 +78,7 @@ export function CheckoutForm({ clientSecret }: CheckoutFormProps) {
   const [errorMessage, setErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isDisclaimerChecked, setIsDisclaimerChecked] = useState(false);
+  const [feedbackVisible, setFeedbackVisible] = useState(false)
   const isButtonDisabled =
     isLoading || !stripe || !elements || !isDisclaimerChecked;
   const button = getButtonColors({
@@ -156,6 +159,17 @@ export function CheckoutForm({ clientSecret }: CheckoutFormProps) {
 
   const horoscope = generateHoroscope?.data?.data?.horoscope;
 
+
+  useEffect(() => {
+    if (horoscope) {
+      const timer = setTimeout(() => {
+        setFeedbackVisible(true)
+      }, 8000)
+
+      return () => clearTimeout(timer)
+    }
+  }, [horoscope])
+
   return (
     <div className="relative overflow-visible">
       <AnimatePresence mode="wait">
@@ -178,9 +192,27 @@ export function CheckoutForm({ clientSecret }: CheckoutFormProps) {
           >
             <div className="flex flex-col">
               <p>{horoscope}</p>
-              <div className="flex mt-10 justify-center">
-                <Feedback />
-              </div>
+              {feedbackVisible &&
+
+
+                <motion.div
+                  className="flex mt-10 justify-center"
+                  // Animate when this value changes:
+                  // Fade in when the element enters the viewport:
+                  initial={{ opacity: 0, scale: 1 }}
+                  animate={{ opacity: 1, scale: 1.05 }}
+
+                  // Animate the component when its layout changes:
+                  layout
+
+                  transition={{ duration: 3, ease: easeInOut }}
+
+
+                >
+                  <Feedback />
+
+                </motion.div>
+              }
 
             </div>
 
