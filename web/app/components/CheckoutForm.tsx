@@ -10,9 +10,14 @@ import { PaymentIntentError } from "./PiError";
 import { useGenerateHoroscope } from "~/hooks/generateHoroscope";
 import { Spinner } from "./Spinner";
 import { AnimatePresence, easeInOut, motion } from "motion/react";
+
 import axios from "axios";
-import { Frown, Meh, Smile } from 'lucide-react';
+import { Frown, Meh, Smile, SquareArrowOutUpRight, Copy, Check } from 'lucide-react';
 import { useAddRating, type AddRatingRequest } from "~/hooks/addRating";
+import { useShareHoroscope } from "~/hooks/shareHoroscope";
+
+const FEEDBACK_DELAY = 2000 // TODO set back to 8
+
 
 
 const getButtonColors = ({
@@ -67,51 +72,60 @@ const Feedback = ({ horoscopeId, paymentIntentId }) => {
   const addRating = useAddRating()
 
 
-
-
   const handleRating = (addRatingRequest: AddRatingRequest) => {
     addRating.mutate(addRatingRequest)
   }
 
-  if (!addRating.isIdle) {
-    return <p className="text-center font-bold">Thanks for your feedback!</p>
-  }
 
-  return <div className="flex max-w-sm justify-center">
-    <div className="flex flex-col justify-center space-y-4">
-      <p className="text-center font-bold ">How do you feel about your horoscope?</p>
-      <div className="flex flex-row justify-around p-5 overflow-visible ">
-        <Icon callback={() => handleRating({
-          horoscopeId,
-          paymentIntentId,
-          rating: "negative"
-        })} color="text-red-500" icon={<Frown />}></Icon>
-        <Icon callback={() => handleRating({
-          horoscopeId,
-          paymentIntentId,
-          rating: "neutral"
-        })} color="text-yellow-500" icon={<Meh />}></Icon>
-        <Icon callback={() => handleRating({
-          horoscopeId,
-          paymentIntentId,
-          rating: "positive"
-        })} color="text-emerald-500" icon={<Smile />}></Icon>
-      </div>
+  return (
+    <div className="flex max-w-sm justify-center items-center min-h-[140px]">
+      {!addRating.isIdle ? <p className="text-center font-bold">Thanks for your feedback!</p> : (
+
+        <div className="flex flex-col justify-center space-y-4">
+          <p className="text-center font-bold ">How do you feel about your horoscope?</p>
+          <div className="flex flex-row justify-around p-5 overflow-visible ">
+            <Icon callback={() => handleRating({
+              horoscopeId,
+              paymentIntentId,
+              rating: "negative"
+            })} color="text-red-500" icon={<Frown />}></Icon>
+            <Icon callback={() => handleRating({
+              horoscopeId,
+              paymentIntentId,
+              rating: "neutral"
+            })} color="text-yellow-500" icon={<Meh />}></Icon>
+            <Icon callback={() => handleRating({
+              horoscopeId,
+              paymentIntentId,
+              rating: "positive"
+            })} color="text-emerald-500" icon={<Smile />}></Icon>
+          </div>
+        </div>
+
+      )
+
+      }
     </div>
-  </div >
+  )
 }
+
 
 
 export function CheckoutForm({ clientSecret }: CheckoutFormProps) {
   const stripe = useStripe();
   const elements = useElements();
   const generateHoroscope = useGenerateHoroscope();
+  const shareHoroscope = useShareHoroscope()
   const [errorMessage, setErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isDisclaimerChecked, setIsDisclaimerChecked] = useState(false);
   const [feedbackVisible, setFeedbackVisible] = useState(false)
   const [paymentIntentId, setPaymentIntentId] = useState<null | string>(null)
-  const [horoscopeId, setHoroscopeId] = useState<null | string>(null)
+  const [copied, setCopied] = useState(false)
+
+
+  const shareableLink = `${window.location.origin}/${generateHoroscope?.data?.data?.external_id}`
+
 
   const isButtonDisabled =
     isLoading || !stripe || !elements || !isDisclaimerChecked;
@@ -119,6 +133,12 @@ export function CheckoutForm({ clientSecret }: CheckoutFormProps) {
     isLoading,
     isDisabled: !isDisclaimerChecked,
   });
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(shareableLink)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -199,7 +219,7 @@ export function CheckoutForm({ clientSecret }: CheckoutFormProps) {
     if (horoscope) {
       const timer = setTimeout(() => {
         setFeedbackVisible(true)
-      }, 8000)
+      }, FEEDBACK_DELAY)
 
       return () => clearTimeout(timer)
     }
@@ -227,17 +247,117 @@ export function CheckoutForm({ clientSecret }: CheckoutFormProps) {
           >
             <div className="flex flex-col">
               <p>{horoscope}</p>
+
               {feedbackVisible &&
-                <motion.div
-                  className="flex mt-10 justify-center"
-                  initial={{ opacity: 0, scale: 1 }}
-                  animate={{ opacity: 1, scale: 1.05 }}
-                  layout
-                  transition={{ duration: 3, ease: easeInOut }}
-                >
-                  <Feedback paymentIntentId={paymentIntentId} horoscopeId={generateHoroscope?.data?.data?.external_id} />
-                </motion.div>
+                <div className="flex flex-col mt-10 items-center gap-4 border border-blue-800 p-2">
+                  <motion.div
+                    className="flex mt-10 justify-center"
+                    initial={{ opacity: 0, scale: 1 }}
+                    animate={{ opacity: 1, scale: 1.05 }}
+                    layout
+                    transition={{ duration: 3, ease: easeInOut }}
+                  >
+                    <div className="flex flex-col  border border-red-800 p-2">
+                      <Feedback paymentIntentId={paymentIntentId} horoscopeId={generateHoroscope?.data?.data?.external_id} />
+
+
+                    </div>
+                  </motion.div>
+
+
+                  <motion.div
+                    className="flex mt-10 justify-center items-center"
+                    initial={{ opacity: 0, scale: 1 }}
+                    animate={{ opacity: 1, scale: 1.05 }}
+                    transition={{ duration: 3, ease: easeInOut }}
+                  >
+                    {shareHoroscope.isSuccess ? (
+                      <div className="flex flex-col items-center gap-4">
+                        <div className="text-center">
+                          <p className="font-bold">Your horoscope is now public!</p>
+                          <p className="text-sm text-slate-300">Share this link with your friends</p>
+                        </div>
+                        <div className="relative">
+                          <button
+                            title={copied ? "Copied!" : "Click to copy"}
+                            onClick={handleCopy}
+                            className="bg-pink-500 hover:bg-pink-600 text-white rounded-md transition-colors duration-200 cursor-pointer flex items-center overflow-hidden"
+                          >
+                            <span className="px-4 py-3 text-sm truncate max-w-xs">
+                              {shareableLink}
+                            </span>
+                            <div className="w-px self-stretch bg-white/30" />
+                            <div className="px-4 py-3 relative">
+                              <AnimatePresence mode="wait" initial={false}>
+                                {copied ? (
+                                  <motion.div
+                                    key="check"
+                                    initial={{ scale: 0, opacity: 0 }}
+                                    animate={{ scale: 1, opacity: 1 }}
+                                    exit={{ scale: 0, opacity: 0 }}
+                                    transition={{ duration: 0.2 }}
+                                  >
+                                    <Check size={20} />
+                                  </motion.div>
+                                ) : (
+                                  <motion.div
+                                    key="copy"
+                                    initial={{ scale: 0, opacity: 0 }}
+                                    animate={{ scale: 1, opacity: 1 }}
+                                    exit={{ scale: 0, opacity: 0 }}
+                                    transition={{ duration: 0.2 }}
+                                  >
+                                    <Copy size={20} />
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+                            </div>
+                          </button>
+                          <AnimatePresence>
+                            {copied && (
+                              <motion.div
+                                key="tooltip"
+                                initial={{ opacity: 0, y: 4 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -4 }}
+                                className="absolute -top-9 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap"
+                              >
+                                Copied to clipboard!
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                        <a
+                          href={shareableLink}
+                          target="_blank"
+                          rel="noopener"
+                          className="text-sm text-slate-300 hover:text-white underline"
+                        >
+                          Open in new tab →
+                        </a>
+                      </div>
+                    ) : (
+
+                      <button onClick={() => {
+                        // Handle sharing
+                        shareHoroscope.mutate({
+                          // This exists at this point
+                          horoscopeId: generateHoroscope?.data?.data?.external_id!,
+                          paymentIntentId: paymentIntentId!,
+                        })
+                      }} className="bg-pink-500 p-4 text-white rounded-md hover:bg-pink-600 transition duration-200 ease-in-out hover:cursor-pointer">
+                        <div className="flex items-center justify-center gap-2">
+                          <p>Share Your Horoscope</p>
+                          <SquareArrowOutUpRight size={20} />
+                        </div>
+                      </button>
+                    )}
+                  </motion.div>
+
+
+                </div>
               }
+
 
             </div>
 

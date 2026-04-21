@@ -57,7 +57,7 @@ func New(cfg config.Config, pool *pgxpool.Pool) *Server {
 
 	visibilityRateLimiter := middleware.CreateRateLimiter(time.Hour*5, 2)
 	go visibilityRateLimiter.BackgroundCleanup(ctx)
-	mux.HandleFunc("PATCH /api/v1/horoscopes/{id}/visibility", middleware.BodySize(middleware.RateLimit(visibilityRateLimiter, s.ShareHoroscope, s.Config.Environment), 512))
+	mux.HandleFunc("POST /api/v1/horoscopes/{id}/share", middleware.BodySize(middleware.RateLimit(visibilityRateLimiter, s.ShareHoroscope, s.Config.Environment), 512))
 
 	// Catchall
 	mux.HandleFunc("/", s.FourOhFour)

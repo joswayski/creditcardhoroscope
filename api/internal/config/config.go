@@ -12,6 +12,7 @@ import (
 type Config struct {
 	Port        string // Defaults to 8080
 	Environment string // Defaults to development
+	BaseURL     string // Defaults to localhost:5173
 
 	// Required
 	AIBaseURL              string
@@ -79,6 +80,11 @@ func LoadConfig() Config {
 		requiredEnvErrors = append(requiredEnvErrors, "AI_SYSTEM_PROMPT")
 	}
 
+	baseUrl := os.Getenv("BASE_URL")
+	if baseUrl == "" {
+		requiredEnvErrors = append(requiredEnvErrors, "BASE_URL")
+	}
+
 	maxHoroscopeLimit := 3
 	maxHoroscopeLimitString := os.Getenv("MAX_HOROSCOPE_LIMIT")
 	if maxHoroscopeLimitString != "" {
@@ -108,7 +114,7 @@ func LoadConfig() Config {
 	return Config{
 		Port:              portString,
 		MaxHoroscopeLimit: maxHoroscopeLimit,
-
+		BaseURL:           baseUrl,
 		// Required
 		AIBaseURL:              aiBaseURL,
 		AIAPIKey:               aiAPIKey,

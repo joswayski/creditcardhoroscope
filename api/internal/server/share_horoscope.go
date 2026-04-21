@@ -11,7 +11,6 @@ import (
 
 type ShareHoroscopeBody struct {
 	PaymentIntentId string `json:"payment_intent_id"`
-	IsPublic        bool   `json:"is_public"`
 }
 
 func (s *Server) ShareHoroscope(w http.ResponseWriter, r *http.Request) {
@@ -28,23 +27,21 @@ func (s *Server) ShareHoroscope(w http.ResponseWriter, r *http.Request) {
 
 	externalId := r.PathValue("id")
 
-	if !strings.HasPrefix(reqBody.PaymentIntentId, "pi_") || externalId == "" || reqBody.IsPublic != true {
+	if !strings.HasPrefix(reqBody.PaymentIntentId, "pi_") || externalId == "" {
 		slog.Error("Error when parsing the request body", "error", err, "body", reqBody, "externalId", externalId)
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]string{
-			"message": "Bad request, invalid is public, horoscope, or payment intent",
+			"message": "Bad request: invalid  horoscope, or payment intent",
 		})
 		return
 	}
 
 	dbResult, err := s.DB.Exec(r.Context(), `
 	UPDATE generations
-	SET is_public = $1, updated_at = $2
+	SET is_public = true, updated_at = $1
 	WHERE
-	is_public IS false AND
-	external_id = $3 AND
-	payment_intent_id = (SELECT id from payment_intents WHERE payment_intent_id = $4)`,
-		reqBody.IsPublic,
+	external_id = $2 AND
+	payment_intent_id = (SELECT id from payment_intents WHERE payment_intent_id = $3)`,
 		time.Now().UTC(),
 		externalId,
 		reqBody.PaymentIntentId,
@@ -67,10 +64,11 @@ func (s *Server) ShareHoroscope(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	shareableLink := fmt.Sprintf("%s/%s", s.Config.BaseURL, externalId)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{
-		"message":        "TODO send link here",
-		"shareable_link": fmt.Sprintf("https://TODOADDWEBURLHERE.com/share/%s", externalId),
+		"message":        fmt.Sprintf("Your horoscope is now public! View it here: %s", shareableLink),
+		"shareable_link": shareableLink,
 	})
 
 }
