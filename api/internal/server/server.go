@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joswayski/creditcardhoroscope/api/internal/config"
+	"github.com/joswayski/creditcardhoroscope/api/internal/horoscopes"
 	"github.com/joswayski/creditcardhoroscope/api/internal/middleware"
 	"github.com/joswayski/creditcardhoroscope/api/internal/webhooks"
 	"github.com/openai/openai-go/v3"
@@ -18,19 +19,24 @@ import (
 )
 
 type Server struct {
-	Config     config.Config
-	httpServer *http.Server
-	DB         *pgxpool.Pool
-	Stripe     *stripe.Client
-	cancel     context.CancelFunc
-	AI         openai.Client
+	Config         config.Config
+	httpServer     *http.Server
+	DB             *pgxpool.Pool
+	Stripe         *stripe.Client
+	cancel         context.CancelFunc
+	AI             openai.Client
+	HoroscopeCache *horoscopes.HoroscopeCache
 }
 
 func New(cfg config.Config, pool *pgxpool.Pool) *Server {
 	s := &Server{Config: cfg, DB: pool, Stripe: stripe.NewClient(cfg.StripeSecretKey), AI: openai.NewClient(
 		option.WithAPIKey(cfg.AIAPIKey),
 		option.WithBaseURL(cfg.AIBaseURL),
-	)}
+	),
+		HoroscopeCache: horoscopes.NewHoroscopeCache(1, time.Second*20), // TODO
+	}
+
+	go s.HoroscopeCache.BackgroundCleanup(context.Background())
 
 	ctx, cancel := context.WithCancel(context.Background())
 	s.cancel = cancel
@@ -58,6 +64,10 @@ func New(cfg config.Config, pool *pgxpool.Pool) *Server {
 	visibilityRateLimiter := middleware.CreateRateLimiter(time.Hour*5, 2)
 	go visibilityRateLimiter.BackgroundCleanup(ctx)
 	mux.HandleFunc("POST /api/v1/horoscopes/{id}/share", middleware.BodySize(middleware.RateLimit(visibilityRateLimiter, s.ShareHoroscope, s.Config.Environment), 512))
+
+	publicViewRateLimiter := middleware.CreateRateLimiter(time.Hour, 10)
+	go publicViewRateLimiter.BackgroundCleanup(ctx)
+	mux.HandleFunc("GET /api/v1/horoscopes/{id}", middleware.BodySize(middleware.RateLimit(publicViewRateLimiter, s.GetHoroscope, s.Config.Environment), 512))
 
 	// Catchall
 	mux.HandleFunc("/", s.FourOhFour)
