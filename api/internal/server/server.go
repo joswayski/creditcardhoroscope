@@ -33,7 +33,7 @@ func New(cfg config.Config, pool *pgxpool.Pool) *Server {
 		option.WithAPIKey(cfg.AIAPIKey),
 		option.WithBaseURL(cfg.AIBaseURL),
 	),
-		HoroscopeCache: horoscopes.NewHoroscopeCache(1, time.Second*20), // TODO
+		HoroscopeCache: horoscopes.NewHoroscopeCache(100, time.Second*20),
 	}
 
 	go s.HoroscopeCache.BackgroundCleanup(context.Background())
