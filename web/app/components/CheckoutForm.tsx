@@ -16,7 +16,7 @@ import { Frown, Meh, Smile, SquareArrowOutUpRight, Copy, Check } from 'lucide-re
 import { useAddRating, type AddRatingRequest } from "~/hooks/addRating";
 import { useShareHoroscope } from "~/hooks/shareHoroscope";
 
-const FEEDBACK_DELAY = 2000 // TODO set back to 8
+const FEEDBACK_DELAY = 5000 // TODO set back to 8?
 
 
 
