@@ -1,0 +1,1 @@
+ALTER TABLE generations ADD COLUMN is_public BOOLEAN NOT NULL DEFAULT false;
