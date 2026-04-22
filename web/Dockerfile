@@ -9,6 +9,12 @@ WORKDIR /app
 RUN npm ci --omit=dev
 
 FROM node:24-alpine AS build-env
+ARG VITE_API_URL
+ARG VITE_STRIPE_PUBLISHABLE_KEY
+ARG VITE_BASE_URL
+ENV VITE_API_URL=$VITE_API_URL
+ENV VITE_STRIPE_PUBLISHABLE_KEY=$VITE_STRIPE_PUBLISHABLE_KEY
+ENV VITE_BASE_URL=$VITE_BASE_URL
 COPY . /app/
 COPY --from=development-dependencies-env /app/node_modules /app/node_modules
 WORKDIR /app
