@@ -4,6 +4,7 @@ import { PaymentIntentError } from "./PiError";
 
 type FindOutButtonProps = {
   createPi: MutationResult;
+  cta?: string;
 };
 
 type GetButtonColorsResponse = {
@@ -28,7 +29,7 @@ const getButtonColors = (mutation: MutationResult): GetButtonColorsResponse => {
   };
 };
 
-export function FindOutButton({ createPi }: FindOutButtonProps) {
+export function FindOutButton({ createPi, cta = "Find out for $1" }: FindOutButtonProps) {
   const button = getButtonColors(createPi);
 
   return createPi.isError ? (
@@ -43,7 +44,7 @@ export function FindOutButton({ createPi }: FindOutButtonProps) {
       disabled={createPi.isPending}
       className={`inline-flex  items-center gap-x-2 rounded-md ${button.background} px-3.5 py-2.5 text-lg font-semibold text-white shadow-xs transition-colors duration-200 ${button.backgroundHover} ${button.cursor} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink-600`}
     >
-      Find out for $1
+      {cta}
       <IoSparkles />
     </button>
   );

@@ -4,4 +4,5 @@ export default [
   index("routes/home.tsx"),
   route("/terms-of-service", "routes/terms-of-service.tsx"),
   route("/privacy-policy", "routes/privacy-policy.tsx"),
+  route(":id", "routes/horoscope.tsx")
 ] satisfies RouteConfig;
