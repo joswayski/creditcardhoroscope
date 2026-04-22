@@ -73,6 +73,7 @@ func RateLimit(ipRateLimiter *IPRateLimiter, next http.HandlerFunc, environment 
 
 func (rl *IPRateLimiter) BackgroundCleanup(ctx context.Context) {
 	ticker := time.NewTicker(time.Second * 20)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
