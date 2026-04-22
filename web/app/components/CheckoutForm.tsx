@@ -63,10 +63,6 @@ const Icon = ({ color, icon, callback }: IconProps) => {
   )
 }
 
-// TODO click to send req
-
-
-
 
 const Feedback = ({ horoscopeId, paymentIntentId }) => {
   const addRating = useAddRating()
@@ -375,7 +371,7 @@ export function CheckoutForm({ clientSecret }: CheckoutFormProps) {
             }}
             id="payment-form"
             onSubmit={handleSubmit}
-            className="items-center justify-center flex flex-col w-full px-8 lg:px-4 min-h-[400px]"
+            className="items-center flex flex-col w-full px-8 lg:px-4"
           >
             <PaymentElement
               id="payment-element"
