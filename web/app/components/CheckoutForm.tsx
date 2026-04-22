@@ -249,7 +249,7 @@ export function CheckoutForm({ clientSecret }: CheckoutFormProps) {
               <p>{horoscope}</p>
 
               {feedbackVisible &&
-                <div className="flex flex-col mt-10 items-center gap-4 border border-blue-800 p-2">
+                <div className="flex flex-col mt-10 items-center gap-4 p-2">
                   <motion.div
                     className="flex mt-10 justify-center"
                     initial={{ opacity: 0, scale: 1 }}
@@ -257,7 +257,7 @@ export function CheckoutForm({ clientSecret }: CheckoutFormProps) {
                     layout
                     transition={{ duration: 3, ease: easeInOut }}
                   >
-                    <div className="flex flex-col  border border-red-800 p-2">
+                    <div className="flex flex-col  p-2">
                       <Feedback paymentIntentId={paymentIntentId} horoscopeId={generateHoroscope?.data?.data?.external_id} />
 
 
