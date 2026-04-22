@@ -10,6 +10,7 @@ type GenerateHoroscopeResponse = {
   message: string;
   horoscope: string;
   external_id?: string;
+  remaining_generations?: number;
 };
 
 export const useGenerateHoroscope = () => {
