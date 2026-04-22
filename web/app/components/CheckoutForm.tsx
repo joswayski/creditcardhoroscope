@@ -64,43 +64,64 @@ const Icon = ({ color, icon, callback }: IconProps) => {
 }
 
 
-const Feedback = ({ horoscopeId, paymentIntentId }) => {
+type FeedbackProps = {
+  horoscopeId: string | undefined
+  paymentIntentId: string | null
+  onRegenerate: () => void
+  isRegenerating: boolean
+  canRegenerate: boolean
+}
+
+const Feedback = ({ horoscopeId, paymentIntentId, onRegenerate, isRegenerating, canRegenerate }: FeedbackProps) => {
   const addRating = useAddRating()
+  const [lastRating, setLastRating] = useState<string | null>(null)
 
-
-  const handleRating = (addRatingRequest: AddRatingRequest) => {
-    addRating.mutate(addRatingRequest)
+  const handleRating = (rating: AddRatingRequest["rating"]) => {
+    if (!horoscopeId || !paymentIntentId) return
+    setLastRating(rating)
+    addRating.mutate({ horoscopeId, paymentIntentId, rating })
   }
 
+  const gaveBadRating = lastRating === "negative" || lastRating === "neutral"
+  const shouldOfferRegenerate = !addRating.isIdle && canRegenerate && gaveBadRating
+  const hitLimit = !addRating.isIdle && !canRegenerate && gaveBadRating
 
   return (
     <div className="flex max-w-sm justify-center items-center min-h-[140px]">
-      {!addRating.isIdle ? <p className="text-center font-bold">Thanks for your feedback!</p> : (
-
+      {addRating.isIdle ? (
         <div className="flex flex-col justify-center space-y-4">
           <p className="text-center font-bold ">How do you feel about your horoscope?</p>
           <div className="flex flex-row justify-around p-5 overflow-visible ">
-            <Icon callback={() => handleRating({
-              horoscopeId,
-              paymentIntentId,
-              rating: "negative"
-            })} color="text-red-500" icon={<Frown />}></Icon>
-            <Icon callback={() => handleRating({
-              horoscopeId,
-              paymentIntentId,
-              rating: "neutral"
-            })} color="text-yellow-500" icon={<Meh />}></Icon>
-            <Icon callback={() => handleRating({
-              horoscopeId,
-              paymentIntentId,
-              rating: "positive"
-            })} color="text-emerald-500" icon={<Smile />}></Icon>
+            <Icon callback={() => handleRating("negative")} color="text-red-500" icon={<Frown />}></Icon>
+            <Icon callback={() => handleRating("neutral")} color="text-yellow-500" icon={<Meh />}></Icon>
+            <Icon callback={() => handleRating("positive")} color="text-emerald-500" icon={<Smile />}></Icon>
           </div>
         </div>
-
-      )
-
-      }
+      ) : shouldOfferRegenerate ? (
+        <div className="flex flex-col justify-center items-center space-y-4">
+          <p className="text-center font-bold">Sorry to hear that! Want to try another?</p>
+          <button
+            onClick={onRegenerate}
+            disabled={isRegenerating}
+            className="bg-pink-500 hover:bg-pink-600 text-white rounded-md px-4 py-2 font-semibold transition-colors duration-200 cursor-pointer disabled:bg-pink-300 disabled:cursor-not-allowed"
+          >
+            {isRegenerating ? (
+              <span className="flex items-center gap-x-2">
+                Consulting the cosmos... <Spinner />
+              </span>
+            ) : (
+              "Try another"
+            )}
+          </button>
+        </div>
+      ) : hitLimit ? (
+        <div className="flex flex-col justify-center items-center space-y-2">
+          <p className="text-center font-bold">Thanks for your feedback!</p>
+          <p className="text-center text-sm text-slate-300">You've hit the limit on regenerations at this time.</p>
+        </div>
+      ) : (
+        <p className="text-center font-bold">Thanks for your feedback!</p>
+      )}
     </div>
   )
 }
@@ -118,9 +139,16 @@ export function CheckoutForm({ clientSecret }: CheckoutFormProps) {
   const [feedbackVisible, setFeedbackVisible] = useState(false)
   const [paymentIntentId, setPaymentIntentId] = useState<null | string>(null)
   const [copied, setCopied] = useState(false)
+  const [generatedHoroscope, setGeneratedHoroscope] = useState<{
+    horoscope: string;
+    external_id?: string;
+    remaining_generations?: number;
+  } | null>(null)
 
-
-  const shareableLink = `${window.location.origin}/${generateHoroscope?.data?.data?.external_id}`
+  const externalId = generatedHoroscope?.external_id
+  const remainingGenerations = generatedHoroscope?.remaining_generations
+  const canRegenerate = remainingGenerations === undefined || remainingGenerations > 0
+  const shareableLink = `${window.location.origin}/${externalId}`
 
 
   const isButtonDisabled =
@@ -134,6 +162,40 @@ export function CheckoutForm({ clientSecret }: CheckoutFormProps) {
     await navigator.clipboard.writeText(shareableLink)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  const handleRegenerate = () => {
+    if (!paymentIntentId) return
+    shareHoroscope.reset()
+    setErrorMessage("")
+    generateHoroscope.mutate(
+      { paymentIntentId },
+      {
+        onSuccess: (response) => {
+          setGeneratedHoroscope({
+            horoscope: response.data.horoscope,
+            external_id: response.data.external_id,
+            remaining_generations: response.data.remaining_generations,
+          })
+        },
+        onError: (e) => {
+          // If we got a remaining_generations back (e.g. 0 on limit hit),
+          // update the state so the regenerate button disappears
+          if (axios.isAxiosError(e) && typeof e.response?.data?.remaining_generations === "number") {
+            setGeneratedHoroscope((prev) =>
+              prev ? { ...prev, remaining_generations: e.response!.data.remaining_generations } : prev
+            )
+            // Don't show the error — the button will just disappear silently
+            return
+          }
+          let message = "An unexpected error occurred"
+          if (axios.isAxiosError(e) && e.response?.data?.message) {
+            message = e.response?.data?.message
+          }
+          setErrorMessage(message)
+        },
+      }
+    )
   }
 
   const handleSubmit = async (e: FormEvent) => {
@@ -189,7 +251,12 @@ export function CheckoutForm({ clientSecret }: CheckoutFormProps) {
           paymentIntentId: paymentIntent.id,
         },
         {
-          onSuccess: () => {
+          onSuccess: (response) => {
+            setGeneratedHoroscope({
+              horoscope: response.data.horoscope,
+              external_id: response.data.external_id,
+              remaining_generations: response.data.remaining_generations,
+            })
             setPaymentIntentId(paymentIntent.id)
             setIsLoading(false);
           },
@@ -208,7 +275,7 @@ export function CheckoutForm({ clientSecret }: CheckoutFormProps) {
     }
   };
 
-  const horoscope = generateHoroscope?.data?.data?.horoscope;
+  const horoscope = generatedHoroscope?.horoscope;
 
 
   useEffect(() => {
@@ -242,7 +309,23 @@ export function CheckoutForm({ clientSecret }: CheckoutFormProps) {
             className="flex max-w-3xl px-8 lg:px-2 text-white text-lg/8 text-pretty text-shadow-md"
           >
             <div className="flex flex-col">
-              <p>{horoscope}</p>
+              <AnimatePresence mode="wait">
+                <motion.p
+                  key={externalId || "initial"}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: generateHoroscope.isPending ? 0.3 : 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  {horoscope}
+                </motion.p>
+              </AnimatePresence>
+
+              {errorMessage && (
+                <div className="mt-6 flex justify-center">
+                  <PaymentIntentError message={errorMessage} />
+                </div>
+              )}
 
               {feedbackVisible &&
                 <div className="flex flex-col mt-10 items-center gap-4 p-2">
@@ -254,9 +337,14 @@ export function CheckoutForm({ clientSecret }: CheckoutFormProps) {
                     transition={{ duration: 3, ease: easeInOut }}
                   >
                     <div className="flex flex-col  p-2">
-                      <Feedback paymentIntentId={paymentIntentId} horoscopeId={generateHoroscope?.data?.data?.external_id} />
-
-
+                      <Feedback
+                        key={externalId}
+                        paymentIntentId={paymentIntentId}
+                        horoscopeId={externalId}
+                        onRegenerate={handleRegenerate}
+                        isRegenerating={generateHoroscope.isPending}
+                        canRegenerate={canRegenerate}
+                      />
                     </div>
                   </motion.div>
 
@@ -338,7 +426,7 @@ export function CheckoutForm({ clientSecret }: CheckoutFormProps) {
                         // Handle sharing
                         shareHoroscope.mutate({
                           // This exists at this point
-                          horoscopeId: generateHoroscope?.data?.data?.external_id!,
+                          horoscopeId: externalId!,
                           paymentIntentId: paymentIntentId!,
                         })
                       }} className="bg-pink-500 p-4 text-white rounded-md hover:bg-pink-600 transition duration-200 ease-in-out hover:cursor-pointer">

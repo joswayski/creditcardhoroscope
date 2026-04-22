@@ -92,8 +92,9 @@ func (s *Server) CreateHoroscope(w http.ResponseWriter, r *http.Request) {
 	// Check the DB status before proceeding
 	if !dbPaymentIntent.AllowsGenerations(currentGenerationCount, s.Config.MaxHoroscopeLimit) {
 		w.WriteHeader(http.StatusConflict)
-		json.NewEncoder(w).Encode(map[string]string{
-			"message": fmt.Sprintf("Unfortunately, this payment cannot be redeemed for a horoscope. If you have any questions email %s with this ID: %s", s.Config.SupportEmail, dbPaymentIntent.PaymentIntentID),
+		json.NewEncoder(w).Encode(map[string]any{
+			"message":               fmt.Sprintf("Unfortunately, your payment can no longer be redeemed for a horoscope. If you have any questions email %s with this ID: %s", s.Config.SupportEmail, dbPaymentIntent.PaymentIntentID),
+			"remaining_generations": 0,
 		})
 		return
 	}
@@ -259,8 +260,9 @@ func (s *Server) CreateHoroscope(w http.ResponseWriter, r *http.Request) {
 
 	if !dbPaymentIntent.AllowsGenerations(currentGenerationCount, s.Config.MaxHoroscopeLimit) {
 		w.WriteHeader(http.StatusConflict)
-		json.NewEncoder(w).Encode(map[string]string{
-			"message": fmt.Sprintf("Unfortunately, this payment cannot be redeemed for a horoscope. If you have any questions email %s with this ID: %s", s.Config.SupportEmail, dbPaymentIntent.PaymentIntentID),
+		json.NewEncoder(w).Encode(map[string]any{
+			"message":               fmt.Sprintf("Unfortunately, your payment can no longer be redeemed for a horoscope. If you have any questions email %s with this ID: %s", s.Config.SupportEmail, dbPaymentIntent.PaymentIntentID),
+			"remaining_generations": 0,
 		})
 		return
 	}
@@ -302,11 +304,18 @@ func (s *Server) CreateHoroscope(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// remaining = limit - (current count + the one we just inserted)
+	remainingGenerations := s.Config.MaxHoroscopeLimit - (currentGenerationCount + 1)
+	if remainingGenerations < 0 {
+		remainingGenerations = 0
+	}
+
 	// yay
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]any{
-		"horoscope":   horoscope,
-		"external_id": externalId,
+		"horoscope":             horoscope,
+		"external_id":           externalId,
+		"remaining_generations": remainingGenerations,
 	})
 
 }
