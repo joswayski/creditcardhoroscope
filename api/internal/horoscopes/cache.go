@@ -2,7 +2,6 @@ package horoscopes
 
 import (
 	"context"
-	"log/slog"
 	"sync"
 	"time"
 )
@@ -41,7 +40,6 @@ func (hc *HoroscopeCache) Get(id string) (PublicHoroscope, bool) {
 		return PublicHoroscope{}, false // let the background job delete it
 	}
 
-	slog.Info("Getting new horoscope from cache", "id", id)
 	return PublicHoroscope{
 		ID:        id,
 		Horoscope: entry.Horoscope.Horoscope,
@@ -57,13 +55,10 @@ func (hc *HoroscopeCache) Set(h PublicHoroscope) {
 	// Check if we hit the limit size, evict something else at random
 	if len(hc.entries) >= hc.maxSize {
 		for id := range hc.entries {
-			slog.Info("Cache is full, deleting horoscope in cache ", "id", id, "horoscope", hc.entries[id])
 			delete(hc.entries, id)
 			break
 		}
 	}
-
-	slog.Info("Inserting new horoscope in cache ", "id", h.ID, "horoscope", h)
 
 	// Insert the new one
 	hc.entries[h.ID] = cacheEntry{expiresAt: time.Now().Add(hc.ttl), Horoscope: h}
@@ -79,7 +74,6 @@ func (hc *HoroscopeCache) BackgroundCleanup(ctx context.Context) {
 
 			for id, entry := range hc.entries {
 				if entry.expiresAt.Before(time.Now()) {
-					slog.Info("Deleting horoscope from cache due to expiry", "id", id)
 					delete(hc.entries, id)
 				}
 			}

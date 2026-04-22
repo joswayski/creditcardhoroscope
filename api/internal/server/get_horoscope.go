@@ -43,8 +43,6 @@ func (s *Server) GetHoroscope(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.HoroscopeCache.Set(publicHoroscope)
-
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
@@ -52,6 +50,8 @@ func (s *Server) GetHoroscope(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+
+	s.HoroscopeCache.Set(publicHoroscope)
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(publicHoroscope)

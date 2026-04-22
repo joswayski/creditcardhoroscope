@@ -33,13 +33,13 @@ func New(cfg config.Config, pool *pgxpool.Pool) *Server {
 		option.WithAPIKey(cfg.AIAPIKey),
 		option.WithBaseURL(cfg.AIBaseURL),
 	),
-		HoroscopeCache: horoscopes.NewHoroscopeCache(100, time.Second*20),
+		HoroscopeCache: horoscopes.NewHoroscopeCache(100, time.Hour*12),
 	}
-
-	go s.HoroscopeCache.BackgroundCleanup(context.Background())
 
 	ctx, cancel := context.WithCancel(context.Background())
 	s.cancel = cancel
+
+	go s.HoroscopeCache.BackgroundCleanup(ctx)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", s.Root)
