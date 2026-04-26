@@ -5,7 +5,7 @@ use sqlx::{PgPool, postgres::PgPoolOptions};
 use crate::config::{Config, DatabaseConfig};
 
 pub struct AppState {
-    db: PgPool,
+    pub db: PgPool,
 }
 
 impl AppState {

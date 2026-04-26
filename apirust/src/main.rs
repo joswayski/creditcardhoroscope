@@ -31,6 +31,7 @@ mod routes;
 use routes::{health, root};
 
 mod utils;
+use tracing::error;
 use utils::rate_limiter;
 
 mod database;
@@ -76,11 +77,15 @@ async fn main() -> anyhow::Result<()> {
     let address = format!("0.0.0.0:{}", config.server.port);
     let listener = TcpListener::bind(address).await?;
 
-    axum::serve(
+    if let Err(e) = axum::serve(
         listener,
         server.into_make_service_with_connect_info::<std::net::SocketAddr>(),
     )
-    .await?;
+    .await
+    {
+        error!("Server error: {}", e);
+        return Err(e.into());
+    };
 
     Ok(())
 }
