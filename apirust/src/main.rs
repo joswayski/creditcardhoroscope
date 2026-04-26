@@ -1,4 +1,4 @@
-use std::{os::unix::net::SocketAddr, time::Duration};
+use std::{os::unix::net::SocketAddr, sync::Arc, time::Duration};
 
 use axum::{
     Router,
@@ -7,6 +7,7 @@ use axum::{
     middleware as axum_middleware,
     routing::get,
 };
+use sqlx::{PgPool, postgres::PgPoolOptions};
 use tokio::{net::TcpListener, time::Timeout};
 use tower::{
     ServiceBuilder,
@@ -32,10 +33,17 @@ use routes::{health, root};
 mod utils;
 use utils::rate_limiter;
 
+mod database;
+use database::run_migrations;
+
+mod app_state;
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
     let config = Config::new()?;
+
+
 
     let cors = CorsLayer::new()
         .allow_methods(config.server.allowed_methods)
@@ -58,7 +66,10 @@ async fn main() -> anyhow::Result<()> {
         .fallback(root)
         .layer(GovernorLayer::new(rate_limiter::new(1, 10))); // General, applies to all
 
-    let server = Router::new().merge(general_routes).layer(middleware_layers);
+    let server = Router::new()
+        .merge(general_routes)
+        .layer(middleware_layers)
+        .with_state(app_state);
 
     let address = format!("0.0.0.0:{}", config.api.port);
     let listener = TcpListener::bind(address).await?;
