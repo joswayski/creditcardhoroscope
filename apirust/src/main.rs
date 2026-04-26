@@ -36,6 +36,8 @@ use utils::rate_limiter;
 mod database;
 use database::run_migrations;
 
+use crate::{app_state::AppState, config::AppConfig};
+
 mod app_state;
 
 #[tokio::main]
@@ -43,7 +45,7 @@ async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
     let config = Config::new()?;
 
-
+    let app_state = AppState::new(&config).await?;
 
     let cors = CorsLayer::new()
         .allow_methods(config.server.allowed_methods)
@@ -71,7 +73,7 @@ async fn main() -> anyhow::Result<()> {
         .layer(middleware_layers)
         .with_state(app_state);
 
-    let address = format!("0.0.0.0:{}", config.api.port);
+    let address = format!("0.0.0.0:{}", config.server.port);
     let listener = TcpListener::bind(address).await?;
 
     axum::serve(

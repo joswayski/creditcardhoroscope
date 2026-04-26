@@ -17,7 +17,6 @@ pub struct Config {
 }
 
 pub struct AppConfig {
-    pub port: String,
     base_url: url::Url,
     environment: String,
     support_email: String,
@@ -25,6 +24,7 @@ pub struct AppConfig {
 }
 
 pub struct ServerConfig {
+    pub port: String,
     pub allowed_origins: [HeaderValue; 3],
     pub allowed_methods: [Method; 4],
     pub max_body_bytes: usize,
@@ -121,7 +121,6 @@ impl Config {
 
 impl AppConfig {
     fn new() -> Result<AppConfig, Vec<String>> {
-        let api_port = get_non_empty("API_PORT").unwrap_or("8080".into());
         let base_url = get_non_empty("BASE_URL")
             .ok_or_else(|| "BASE_URL is required and cannot be empty".into())
             .and_then(|v| {
@@ -147,7 +146,6 @@ impl AppConfig {
         match base_url {
             Ok(base_url) => Ok(AppConfig {
                 environment: environment,
-                port: api_port,
                 base_url: base_url,
                 support_email: support_email,
                 max_horoscope_limit: max_horoscope_limit,
@@ -255,8 +253,11 @@ impl ServerConfig {
                 .map_err(|e| format!("Could not parse domain to HeaderValue {v} - error: {e}"))
         });
 
+        let api_port = get_non_empty("API_PORT").unwrap_or("8080".into());
+
         match origins {
             [Ok(a), Ok(b), Ok(c)] => Ok(ServerConfig {
+                port: api_port,
                 allowed_origins: [a, b, c],
                 allowed_methods: [Method::GET, Method::POST, Method::PATCH, Method::OPTIONS],
                 max_body_bytes: 1024,
