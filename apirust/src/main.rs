@@ -8,7 +8,7 @@ use axum::{
     routing::get,
 };
 use sqlx::{PgPool, postgres::PgPoolOptions};
-use tokio::{net::TcpListener, time::Timeout};
+use tokio::{net::TcpListener, signal, time::Timeout};
 use tower::{
     ServiceBuilder,
     limit::{RateLimitLayer, rate},
@@ -31,7 +31,7 @@ mod routes;
 use routes::{health, root};
 
 mod utils;
-use tracing::error;
+use tracing::{error, info};
 use utils::rate_limiter;
 
 mod database;
@@ -81,6 +81,7 @@ async fn main() -> anyhow::Result<()> {
         listener,
         server.into_make_service_with_connect_info::<std::net::SocketAddr>(),
     )
+    .with_graceful_shutdown(shutdown_signal())
     .await
     {
         error!("Server error: {}", e);
@@ -88,4 +89,32 @@ async fn main() -> anyhow::Result<()> {
     };
 
     Ok(())
+}
+
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        signal::ctrl_c()
+            .await
+            .expect("failed to install ctrl_c handler")
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        use tokio::signal::unix::SignalKind;
+
+        signal::unix::signal(SignalKind::terminate())
+            .expect("failed to install signal handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending();
+
+    tokio::select! {
+        () = ctrl_c => {},
+        () = terminate => {},
+    }
+
+    info!("shutdown signal received");
 }
