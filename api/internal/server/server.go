@@ -42,44 +42,29 @@ func New(cfg config.Config, pool *pgxpool.Pool) *Server {
 	go s.HoroscopeCache.BackgroundCleanup(ctx)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /{$}", s.Root)
-	mux.HandleFunc("GET /api/v1/{$}", s.Root)
-	mux.HandleFunc("GET /api/v1/health", s.SaulGoodman)
 
 	piRateLimiter := middleware.CreateRateLimiter(time.Second*5, 2)
 	go piRateLimiter.BackgroundCleanup(ctx)
-	mux.HandleFunc("POST /api/v1/payment-intents", middleware.BodySize(middleware.RateLimit(piRateLimiter, s.CreatePaymentIntent, s.Config.Environment), 0))
+	mux.HandleFunc("POST /api/v1/payment-intents", middleware.RateLimit(piRateLimiter, s.CreatePaymentIntent, s.Config.Environment))
 
 	// TODO In the future we will allow multiple generations. For now to stop some spam
 	horoscopeRateLimiter := middleware.CreateRateLimiter(time.Second*5, 2)
 	go horoscopeRateLimiter.BackgroundCleanup(ctx)
-	mux.HandleFunc("POST /api/v1/horoscopes", middleware.BodySize(middleware.RateLimit(horoscopeRateLimiter, s.CreateHoroscope, s.Config.Environment), 512))
+	mux.HandleFunc("POST /api/v1/horoscopes", middleware.RateLimit(horoscopeRateLimiter, s.CreateHoroscope, s.Config.Environment))
 
-	mux.HandleFunc("POST /api/v1/webhooks/stripe", middleware.BodySize(middleware.IPWhitelist(s.StripeWebhook, webhooks.StripeIps, s.Config.Environment), 69420))
+	mux.HandleFunc("POST /api/v1/webhooks/stripe", middleware.IPWhitelist(s.StripeWebhook, webhooks.StripeIps, s.Config.Environment))
 
 	ratingRateLimiter := middleware.CreateRateLimiter(time.Hour*5, 2)
 	go ratingRateLimiter.BackgroundCleanup(ctx)
-	mux.HandleFunc("PATCH /api/v1/horoscopes/{id}/rating", middleware.BodySize(middleware.RateLimit(ratingRateLimiter, s.RateHoroscope, s.Config.Environment), 512))
+	mux.HandleFunc("PATCH /api/v1/horoscopes/{id}/rating", middleware.RateLimit(ratingRateLimiter, s.RateHoroscope, s.Config.Environment))
 
 	visibilityRateLimiter := middleware.CreateRateLimiter(time.Hour*5, 2)
 	go visibilityRateLimiter.BackgroundCleanup(ctx)
-	mux.HandleFunc("POST /api/v1/horoscopes/{id}/share", middleware.BodySize(middleware.RateLimit(visibilityRateLimiter, s.ShareHoroscope, s.Config.Environment), 512))
+	mux.HandleFunc("POST /api/v1/horoscopes/{id}/share", middleware.RateLimit(visibilityRateLimiter, s.ShareHoroscope, s.Config.Environment))
 
 	publicViewRateLimiter := middleware.CreateRateLimiter(time.Hour, 10)
 	go publicViewRateLimiter.BackgroundCleanup(ctx)
-	mux.HandleFunc("GET /api/v1/horoscopes/{id}", middleware.BodySize(middleware.RateLimit(publicViewRateLimiter, s.GetHoroscope, s.Config.Environment), 512))
-
-	// Catchall
-	mux.HandleFunc("/", s.FourOhFour)
-
-	s.httpServer = &http.Server{
-		Addr: ":" + cfg.Port,
-		// left to right
-		Handler:      middleware.CORS(middleware.JSONResponseHeader(mux)),
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 30 * time.Second,
-		IdleTimeout:  30 * time.Second,
-	}
+	mux.HandleFunc("GET /api/v1/horoscopes/{id}", middleware.RateLimit(publicViewRateLimiter, s.GetHoroscope, s.Config.Environment))
 
 	return s
 }
