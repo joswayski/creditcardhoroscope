@@ -1,13 +1,22 @@
-use std::time::Duration;
+use std::{os::unix::net::SocketAddr, time::Duration};
 
 use axum::{
     Router,
     extract::DefaultBodyLimit,
     http::{HeaderValue, Method, StatusCode},
+    middleware as axum_middleware,
     routing::get,
 };
 use tokio::{net::TcpListener, time::Timeout};
-use tower::ServiceBuilder;
+use tower::{
+    ServiceBuilder,
+    limit::{RateLimitLayer, rate},
+};
+use tower_governor::{
+    GovernorLayer,
+    governor::{GovernorConfig, GovernorConfigBuilder},
+    key_extractor::SmartIpKeyExtractor,
+};
 use tower_http::trace::TraceLayer;
 use tower_http::{
     cors::{Any, CorsLayer},
@@ -20,11 +29,8 @@ use config::Config;
 mod routes;
 use routes::{health, root};
 
-const ALLOWED_ORIGINS: [&str; 3] = [
-    "https://creditcardhoroscope.com",
-    "https://staging.creditcardhoroscope.com",
-    "http://localhost:5173",
-];
+mod utils;
+use utils::rate_limiter;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -33,33 +39,35 @@ async fn main() -> anyhow::Result<()> {
 
     let cors = CorsLayer::new()
         .allow_methods([Method::GET, Method::POST, Method::PATCH, Method::OPTIONS])
-        .allow_origin(ALLOWED_ORIGINS.map(|origin| {
-            origin.parse::<HeaderValue>().unwrap_or_else(|_| {
-                panic!("allowed origin should be a valid header value: {origin}")
-            })
-        }));
+        .allow_origin(config.server.allowed_origins);
 
-    let middleware = ServiceBuilder::new()
-        .layer(TraceLayer::new_for_http()) // first
+    let middleware_layers = ServiceBuilder::new()
+        .layer(TraceLayer::new_for_http())
         .layer(TimeoutLayer::with_status_code(
             // second
             StatusCode::REQUEST_TIMEOUT,
-            Duration::from_secs(30),
+            Duration::from_secs(config.server.timeout_seconds),
         ))
-        .layer(cors) // third
-        .layer(DefaultBodyLimit::max(1024)); // fourth
+        .layer(cors)
+        .layer(DefaultBodyLimit::max(config.server.max_body_bytes));
 
-    let server = Router::new()
-        .layer(middleware)
+    let general_routes = Router::new()
         .route("/", get(root))
         .route("/api/v1", get(root))
         .route("/api/v1/health", get(health))
-        .fallback(root);
+        .fallback(root)
+        .layer(GovernorLayer::new(rate_limiter::new(1, 10))); // General, applies to all
+
+    let server = Router::new().merge(general_routes).layer(middleware_layers);
 
     let address = format!("0.0.0.0:{}", config.api.port);
     let listener = TcpListener::bind(address).await?;
 
-    axum::serve(listener, server).await?;
+    axum::serve(
+        listener,
+        server.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+    )
+    .await?;
 
     Ok(())
 }

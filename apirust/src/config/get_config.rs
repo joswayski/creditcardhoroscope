@@ -1,10 +1,15 @@
-use std::{error::Error, os};
+use axum::http::HeaderValue;
+use tracing::warn;
 
-use tracing::{error, warn};
-use tracing_subscriber::fmt::format;
+const ALLOWED_ORIGINS: [&str; 3] = [
+    "https://creditcardhoroscope.com",
+    "https://staging.creditcardhoroscope.com",
+    "http://localhost:5173",
+];
 
 pub struct Config {
     pub api: APIConfig,
+    pub server: ServerConfig,
     pub stripe: StripeConfig,
     pub ai: AIConfig,
 }
@@ -16,6 +21,12 @@ pub struct APIConfig {
     database_url: url::Url,
     support_email: String,
     max_horoscope_limit: u8,
+}
+
+pub struct ServerConfig {
+    pub allowed_origins: [HeaderValue; 3],
+    pub max_body_bytes: usize,
+    pub timeout_seconds: u64,
 }
 
 struct AIConfig {
@@ -40,16 +51,27 @@ impl Config {
         let api_result = APIConfig::new();
         let stripe_result = StripeConfig::new();
         let ai_result = AIConfig::new();
+        let server_result = ServerConfig::new();
 
-        match (api_result, stripe_result, ai_result) {
-            (Ok(api), Ok(stripe), Ok(ai)) => Ok(Config { api, ai, stripe }),
-            (api_res, stripe_res, ai_res) => {
-                let config_errors = [api_res.err(), stripe_res.err(), ai_res.err()]
-                    .into_iter()
-                    .flatten()
-                    .flatten()
-                    .collect::<Vec<String>>()
-                    .join("\n");
+        match (api_result, stripe_result, ai_result, server_result) {
+            (Ok(api), Ok(stripe), Ok(ai), Ok(server)) => Ok(Config {
+                api,
+                ai,
+                stripe,
+                server,
+            }),
+            (api_res, stripe_res, ai_res, server_res) => {
+                let config_errors = [
+                    api_res.err(),
+                    stripe_res.err(),
+                    ai_res.err(),
+                    server_res.err(),
+                ]
+                .into_iter()
+                .flatten()
+                .flatten()
+                .collect::<Vec<String>>()
+                .join("\n");
 
                 Err(anyhow::anyhow!("Config error: \n{}", config_errors))
             }
@@ -192,4 +214,26 @@ impl AIConfig {
 }
 fn get_non_empty(key: &'static str) -> Option<String> {
     std::env::var(key).ok().filter(|v| !v.is_empty())
+}
+
+impl ServerConfig {
+    fn new() -> Result<ServerConfig, Vec<String>> {
+        let origins = ALLOWED_ORIGINS.map(|v| {
+            v.parse::<HeaderValue>()
+                .map_err(|e| format!("Could not parse domain to HeaderValue {v} - error: {e}"))
+        });
+
+        match origins {
+            [Ok(a), Ok(b), Ok(c)] => Ok(ServerConfig {
+                allowed_origins: [a, b, c],
+                max_body_bytes: 1024,
+                timeout_seconds: 30,
+            }),
+            origins => {
+                let errors = origins.into_iter().filter_map(Result::err).collect();
+
+                Err(errors)
+            }
+        }
+    }
 }
