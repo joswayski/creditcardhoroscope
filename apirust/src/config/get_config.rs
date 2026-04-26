@@ -1,4 +1,4 @@
-use axum::http::HeaderValue;
+use axum::http::{HeaderValue, Method};
 use tracing::warn;
 
 const ALLOWED_ORIGINS: [&str; 3] = [
@@ -25,6 +25,7 @@ pub struct APIConfig {
 
 pub struct ServerConfig {
     pub allowed_origins: [HeaderValue; 3],
+    pub allowed_methods: [Method; 4],
     pub max_body_bytes: usize,
     pub timeout_seconds: u64,
 }
@@ -226,6 +227,7 @@ impl ServerConfig {
         match origins {
             [Ok(a), Ok(b), Ok(c)] => Ok(ServerConfig {
                 allowed_origins: [a, b, c],
+                allowed_methods: [Method::GET, Method::POST, Method::PATCH, Method::OPTIONS],
                 max_body_bytes: 1024,
                 timeout_seconds: 30,
             }),

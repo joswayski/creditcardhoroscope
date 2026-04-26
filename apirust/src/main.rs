@@ -38,7 +38,7 @@ async fn main() -> anyhow::Result<()> {
     let config = Config::new()?;
 
     let cors = CorsLayer::new()
-        .allow_methods([Method::GET, Method::POST, Method::PATCH, Method::OPTIONS])
+        .allow_methods(config.server.allowed_methods)
         .allow_origin(config.server.allowed_origins);
 
     let middleware_layers = ServiceBuilder::new()
