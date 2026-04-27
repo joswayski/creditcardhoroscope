@@ -2,12 +2,12 @@ use std::sync::Arc;
 
 use axum::{Json, extract::State};
 use serde_json::json;
-use sqlx::query_scalar;
+use sqlx::query;
 
 use crate::app_state::AppState;
 
 pub async fn health(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
-    let db_status = match query_scalar!("SELECT 1").fetch_one(&state.db).await {
+    let db_status = match query("SELECT 1").execute(&state.db).await {
         Ok(_) => "ok".to_string(),
         Err(e) => e.to_string(),
     };
