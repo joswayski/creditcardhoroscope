@@ -24,9 +24,9 @@ func main() {
 
 func run() error {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, nil)))
-	apiConfig := config.LoadConfig()
+	AppConfig := config.LoadConfig()
 
-	pool, err := database.Connect(apiConfig.DatabaseURL)
+	pool, err := database.Connect(AppConfig.DatabaseURL)
 	if err != nil {
 		return fmt.Errorf("Error connecting to the database %w", err)
 	}
@@ -37,7 +37,7 @@ func run() error {
 		return fmt.Errorf("Error running migrations %w", err)
 	}
 
-	s := server.New(apiConfig, pool)
+	s := server.New(AppConfig, pool)
 	go s.Run()
 
 	quitChannel := make(chan os.Signal, 1)
